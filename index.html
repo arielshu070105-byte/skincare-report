@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<title>保養品回報</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0b0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0b0b;
+    --ink: #f5f0f1;
+    --ink-soft: #b7a9ac;
+    --line: #2c2626;
+    --input-bg: #1c1919;
+    --accent: #e8a2b0;
+    --accent-ink: #2a1116;
+    --glass-bg: rgba(255,255,255,0.05);
+    --glass-border: rgba(255,255,255,0.12);
+    --radius: 16px;
+    --danger: #e5867e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    background-color: #0b0b0b;
+    background-image:
+      radial-gradient(120% 70% at 50% -10%, rgba(232,162,176,0.14) 0%, transparent 60%),
+      linear-gradient(165deg, #1a1616 0%, #131111 45%, #0a0a0a 100%);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #shell { max-width: 480px; margin: 0 auto; padding: 24px 18px 60px; min-height: 100vh; }
+  h1 { font-size: 22px; font-weight: 900; margin: 0 0 4px; }
+  h2 { font-size: 17px; font-weight: 900; margin: 0 0 12px; }
+  p { line-height: 1.6; color: var(--ink-soft); font-size: 14px; }
+  label { display: block; font-size: 12.5px; color: var(--ink-soft); margin: 12px 0 4px; }
+  input, select, textarea {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+    font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink);
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  .btn-primary { width: 100%; padding: 14px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 900; font-size: 15px; margin-top: 14px; }
+  .btn-primary:disabled { opacity: 0.4; }
+  .btn-ghost { background: none; color: var(--ink-soft); padding: 8px; font-size: 13px; text-decoration: underline; width: 100%; margin-top: 4px; }
+  .btn-sm { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); color: var(--ink); font-size: 13px; }
+  .center-screen { padding: 60px 0; }
+  .center-screen textarea { font-family: monospace; font-size: 12px; min-height: 110px; }
+
+  .card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .tab-nav { display: flex; gap: 8px; margin-bottom: 18px; }
+  .tab-btn { flex: 1; padding: 10px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--ink-soft); font-size: 14px; font-weight: 700; }
+  .tab-btn.active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .tab-view { display: none; }
+  .tab-view.active { display: block; }
+
+  .line-item { display: grid; grid-template-columns: 1fr 60px 24px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .line-item .subtotal { font-size: 12px; color: var(--ink-soft); grid-column: 1 / 3; margin-top: -4px; }
+  .remove-btn { background: none; color: var(--danger); font-size: 20px; padding: 0; }
+  .total-row { display: flex; justify-content: space-between; margin-top: 10px; font-weight: 900; font-size: 16px; }
+  .status-msg { font-size: 13px; text-align: center; margin-top: 10px; color: var(--ink-soft); }
+  .status-msg.ok { color: #86d9a8; }
+  .status-msg.err { color: var(--danger); }
+  .who-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 12.5px; color: var(--ink-soft); }
+  .who-row button { background: none; color: var(--ink-soft); text-decoration: underline; font-size: 12.5px; }
+
+  #setupNotice, #loginScreen, #app { display: none; }
+</style>
+</head>
+<body>
+
+<div id="shell">
+
+  <div id="setupNotice" class="center-screen">
+    <h2>尚未設定雲端連線</h2>
+    <p>貼上 firebaseConfig 讓這個回報工具能連上資料庫。</p>
+    <textarea id="configInput" placeholder='{ apiKey: "...", projectId: "...", ... }'></textarea>
+    <button class="btn-primary" onclick="saveSetup()">儲存並繼續</button>
+  </div>
+
+  <div id="loginScreen" class="center-screen">
+    <h1>🌸 保養品回報</h1>
+    <p>登入後可以回報銷售跟修正庫存</p>
+    <label for="loginEmail">Email</label>
+    <input id="loginEmail" type="email" autocomplete="username">
+    <label for="loginPassword">密碼</label>
+    <input id="loginPassword" type="password" autocomplete="current-password">
+    <button class="btn-primary" onclick="doLogin()">登入</button>
+    <p id="loginStatus" class="status-msg"></p>
+  </div>
+
+  <div id="app">
+    <div class="who-row">
+      <span id="whoAmI"></span>
+      <button onclick="doLogout()">登出</button>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tabBtnSale" onclick="switchTab('sale')">登記銷售</button>
+      <button class="tab-btn" id="tabBtnAdjust" onclick="switchTab('adjust')">庫存修正</button>
+    </div>
+
+    <div class="tab-view active" id="tabSale">
+      <div class="card">
+        <h2>登記銷售</h2>
+        <label for="saleCustomer">客戶姓名</label>
+        <input id="saleCustomer" placeholder="例如:蔡宜穎">
+        <label>商品明細</label>
+        <div id="saleLines"></div>
+        <button class="btn-ghost" onclick="addSaleLine()">+ 加一項商品</button>
+        <div class="total-row"><span>總計</span><span id="saleTotal">NT$ 0</span></div>
+        <button class="btn-primary" id="saleSubmitBtn" onclick="submitSale()">送出銷售紀錄</button>
+        <p id="saleStatus" class="status-msg"></p>
+      </div>
+    </div>
+
+    <div class="tab-view" id="tabAdjust">
+      <div class="card">
+        <h2>庫存修正</h2>
+        <p>盤點後發現數量不對,填入實際數字就好,差額會自動算出來。</p>
+        <label for="adjustProduct">商品</label>
+        <select id="adjustProduct"></select>
+        <label for="adjustQty">實際庫存數量</label>
+        <input id="adjustQty" type="number" inputmode="numeric" min="0">
+        <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjust()">送出庫存修正</button>
+        <p id="adjustStatus" class="status-msg"></p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initFirebase, loadConfig, saveConfig, parseConfigInput } from "./firebase-init.js";
+import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js";
+import { PRODUCTS } from "./products-seed.js";
+import {
+  collection, addDoc, serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {
+  signInWithEmailAndPassword, signOut, onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+let db, auth;
+let saleLineCount = 0;
+
+function boot() {
+  const config = loadConfig();
+  if (!config) {
+    document.getElementById("setupNotice").style.display = "block";
+    return;
+  }
+  try {
+    const fb = initFirebase(config);
+    db = fb.db;
+    auth = fb.auth;
+  } catch (e) {
+    console.error(e);
+    document.getElementById("setupNotice").style.display = "block";
+    return;
+  }
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      document.getElementById("whoAmI").textContent = user.email;
+      if (saleLineCount === 0) addSaleLine();
+      renderAdjustOptions();
+    } else {
+      document.getElementById("app").style.display = "none";
+      document.getElementById("loginScreen").style.display = "block";
+    }
+  });
+}
+
+window.saveSetup = function () {
+  const raw = document.getElementById("configInput").value.trim();
+  if (!raw) { alert("請先貼上 firebaseConfig 內容"); return; }
+  try {
+    const configObj = parseConfigInput(raw);
+    saveConfig(configObj);
+    document.getElementById("setupNotice").style.display = "none";
+    const fb = initFirebase(configObj);
+    db = fb.db;
+    auth = fb.auth;
+    document.getElementById("loginScreen").style.display = "block";
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        document.getElementById("whoAmI").textContent = user.email;
+        if (saleLineCount === 0) addSaleLine();
+        renderAdjustOptions();
+      }
+    });
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+window.doLogin = async function () {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const statusEl = document.getElementById("loginStatus");
+  statusEl.textContent = "登入中…";
+  statusEl.className = "status-msg";
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    statusEl.textContent = "";
+  } catch (e) {
+    statusEl.textContent = "登入失敗:" + e.message;
+    statusEl.className = "status-msg err";
+  }
+};
+
+window.doLogout = function () {
+  signOut(auth);
+};
+
+// ── tabs ─────────────────────────────────
+window.switchTab = function (tab) {
+  document.getElementById("tabSale").classList.toggle("active", tab === "sale");
+  document.getElementById("tabAdjust").classList.toggle("active", tab === "adjust");
+  document.getElementById("tabBtnSale").classList.toggle("active", tab === "sale");
+  document.getElementById("tabBtnAdjust").classList.toggle("active", tab === "adjust");
+};
+
+// ── 登記銷售 ─────────────────────────────
+function productOptionsHtml(selectedCode) {
+  return `<option value="">選擇商品…</option>` + PRODUCTS.map((p) =>
+    `<option value="${escapeHtml(p.code)}" ${p.code === selectedCode ? "selected" : ""}>${escapeHtml(p.name)}(${escapeHtml(p.code)})</option>`
+  ).join("");
+}
+
+window.addSaleLine = function () {
+  const id = "line" + (++saleLineCount);
+  const container = document.getElementById("saleLines");
+  const div = document.createElement("div");
+  div.className = "line-item";
+  div.id = id;
+  div.innerHTML = `
+    <select onchange="updateSaleTotal()" data-role="product">${productOptionsHtml()}</select>
+    <input type="number" min="1" value="1" inputmode="numeric" data-role="qty" onchange="updateSaleTotal()">
+    <button class="remove-btn" onclick="removeSaleLine('${id}')">×</button>
+    <div class="subtotal" data-role="subtotal"></div>
+  `;
+  container.appendChild(div);
+  updateSaleTotal();
+};
+
+window.removeSaleLine = function (id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  updateSaleTotal();
+};
+
+function getSaleLines() {
+  const lines = [];
+  document.querySelectorAll("#saleLines .line-item").forEach((el) => {
+    const code = el.querySelector('[data-role="product"]').value;
+    const qty = Number(el.querySelector('[data-role="qty"]').value) || 0;
+    const product = PRODUCTS.find((p) => p.code === code);
+    if (product && qty > 0) {
+      lines.push({ code: product.code, name: product.name, qty, unitPrice: product.price });
+    }
+    const subtotalEl = el.querySelector('[data-role="subtotal"]');
+    if (product && qty > 0) {
+      subtotalEl.textContent = `${qty} × ${formatCurrency(product.price)} = ${formatCurrency(qty * product.price)}`;
+    } else {
+      subtotalEl.textContent = "";
+    }
+  });
+  return lines;
+}
+
+window.updateSaleTotal = function () {
+  const lines = getSaleLines();
+  const total = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
+  document.getElementById("saleTotal").textContent = formatCurrency(total);
+};
+
+window.submitSale = async function () {
+  const customer = document.getElementById("saleCustomer").value.trim();
+  const lines = getSaleLines();
+  const statusEl = document.getElementById("saleStatus");
+  const btn = document.getElementById("saleSubmitBtn");
+  if (!customer) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
+  if (lines.length === 0) { statusEl.textContent = "請至少選一項商品"; statusEl.className = "status-msg err"; return; }
+  btn.disabled = true;
+  statusEl.textContent = "送出中…";
+  statusEl.className = "status-msg";
+  try {
+    await addDoc(collection(db, "pendingActions"), {
+      type: "sale",
+      customer,
+      items: lines,
+      date: todayISO(),
+      createdAt: serverTimestamp(),
+      synced: false,
+    });
+    statusEl.textContent = "已送出,電腦開著時會自動同步進 Excel";
+    statusEl.className = "status-msg ok";
+    document.getElementById("saleCustomer").value = "";
+    document.getElementById("saleLines").innerHTML = "";
+    saleLineCount = 0;
+    addSaleLine();
+  } catch (e) {
+    statusEl.textContent = "送出失敗:" + e.message;
+    statusEl.className = "status-msg err";
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ── 庫存修正 ─────────────────────────────
+window.renderAdjustOptions = function renderAdjustOptions() {
+  document.getElementById("adjustProduct").innerHTML = productOptionsHtml();
+};
+
+window.submitAdjust = async function () {
+  const code = document.getElementById("adjustProduct").value;
+  const targetQty = Number(document.getElementById("adjustQty").value);
+  const statusEl = document.getElementById("adjustStatus");
+  const btn = document.getElementById("adjustSubmitBtn");
+  const product = PRODUCTS.find((p) => p.code === code);
+  if (!product) { statusEl.textContent = "請選擇商品"; statusEl.className = "status-msg err"; return; }
+  if (!Number.isFinite(targetQty) || targetQty < 0) { statusEl.textContent = "請填正確的數量"; statusEl.className = "status-msg err"; return; }
+  btn.disabled = true;
+  statusEl.textContent = "送出中…";
+  statusEl.className = "status-msg";
+  try {
+    await addDoc(collection(db, "pendingActions"), {
+      type: "stockAdjust",
+      code: product.code,
+      name: product.name,
+      targetQty,
+      date: todayISO(),
+      createdAt: serverTimestamp(),
+      synced: false,
+    });
+    statusEl.textContent = "已送出,電腦開著時會自動同步進 Excel";
+    statusEl.className = "status-msg ok";
+    document.getElementById("adjustQty").value = "";
+  } catch (e) {
+    statusEl.textContent = "送出失敗:" + e.message;
+    statusEl.className = "status-msg err";
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+boot();
+</script>
+</body>
+</html>
