@@ -168,6 +168,22 @@
   .who-row .who-email { flex: 1; font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .who-row button { background: none; color: var(--accent); font-weight: 700; font-size: 12.5px; flex-shrink: 0; }
 
+  /* ── 最近銷售紀錄 ─────────────────── */
+  .sale-record { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .sale-record:last-child { border-bottom: none; }
+  .sale-record-main { flex: 1; min-width: 0; }
+  .sale-record-top { display: flex; justify-content: space-between; gap: 8px; }
+  .sale-record-customer { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+  .sale-record-total { font-weight: 900; font-size: 14.5px; color: var(--ink); flex-shrink: 0; }
+  .sale-record-items { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .sale-record-date { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
+  .sale-record-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .sale-record-actions button { width: 32px; height: 32px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .sale-record-actions button.danger { color: var(--danger); }
+  .list-empty { text-align: center; color: var(--ink-soft); font-size: 13.5px; padding: 20px 10px; }
+  .editing-banner { background: rgba(143,176,214,0.16); color: var(--accent); font-size: 13px; font-weight: 700; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .editing-banner button { background: none; color: var(--accent); text-decoration: underline; font-weight: 700; font-size: 12.5px; }
+
   #setupNotice, #loginScreen, #app { display: none; }
 </style>
 </head>
@@ -210,6 +226,7 @@
     <div class="tab-view active" id="tabSale">
       <div class="card">
         <h2>登記銷售</h2>
+        <div id="editingBanner"></div>
         <label for="saleCustomer">客戶姓名</label>
         <input id="saleCustomer">
         <label>商品明細</label>
@@ -218,6 +235,11 @@
         <div class="total-row"><span>總計</span><span id="saleTotal">NT$ 0</span></div>
         <button class="btn-primary" id="saleSubmitBtn" onclick="submitSale()">送出銷售紀錄</button>
         <p id="saleStatus" class="status-msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>最近銷售紀錄</h2>
+        <div id="salesListContent"></div>
       </div>
     </div>
 
@@ -297,6 +319,8 @@ let dailyTotals = [];
 let perfRange = "week";
 let perfUnsubscribe = null;
 let lastSyncAt = null; // 本機同步程式最後一次更新績效資料的時間
+let salesList = [];
+let editingSaleId = null;
 
 function setWhoAmI(text) {
   document.getElementById("whoAmI").textContent = text;
@@ -341,8 +365,10 @@ async function onLoggedIn(user) {
   if (perfUnsubscribe) perfUnsubscribe();
   perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
     dailyTotals = (snap.exists() && snap.data().dailyTotals) || [];
+    salesList = (snap.exists() && snap.data().salesList) || [];
     lastSyncAt = (snap.exists() && snap.data().updatedAt && snap.data().updatedAt.toDate) ? snap.data().updatedAt.toDate() : new Date();
     renderPerformance();
+    renderSalesList();
     updateStatusDot();
   }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); updateStatusDot(); });
 }
@@ -369,8 +395,18 @@ window.previewOnly = function () {
   renderAdjustOptions();
   dailyTotals = fakePerformanceData();
   renderPerformance();
+  salesList = fakeSalesList();
+  renderSalesList();
   updateStatusDot();
 };
+
+function fakeSalesList() {
+  return [
+    { id: "fake-1", date: "2026-07-26", customer: "蔡宜穎", items: [{ code: "1號", name: "多肽化妝水(200ml)", qty: 2 }, { code: "3號", name: "透明質酸精華(30ml)", qty: 1 }], total: 2444 },
+    { id: "fake-2", date: "2026-07-25", customer: "斑斑", items: [{ code: "4+5+6", name: "維生素C三件套裝(1set)", qty: 1 }], total: 4398 },
+    { id: "fake-3", date: "2026-07-24", customer: "王愷均", items: [{ code: "鑽石面膜", name: "鑽石面膜", qty: 1 }], total: 4398 },
+  ];
+}
 
 function boot() {
   const config = loadConfig();
@@ -703,6 +739,96 @@ window.updateSaleTotal = function () {
   document.getElementById("saleTotal").textContent = formatCurrency(total);
 };
 
+// ── 最近銷售紀錄(查看/修改/刪除) ─────────
+window.renderSalesList = function renderSalesList() {
+  const el = document.getElementById("salesListContent");
+  if (!el) return;
+  if (!salesList || salesList.length === 0) {
+    el.innerHTML = `<div class="list-empty">還沒有銷售紀錄。</div>`;
+    return;
+  }
+  el.innerHTML = salesList.map((r) => {
+    const itemsSummary = (r.items || []).map((it) => `${escapeHtml(it.name || it.code)} x${it.qty}`).join("、");
+    return `
+      <div class="sale-record">
+        <div class="sale-record-main">
+          <div class="sale-record-top">
+            <span class="sale-record-customer">${escapeHtml(r.customer || "(未填姓名)")}</span>
+            <span class="sale-record-total">${formatCurrency(r.total)}</span>
+          </div>
+          <div class="sale-record-items">${itemsSummary || "-"}</div>
+          <div class="sale-record-date">${escapeHtml(r.date)}</div>
+        </div>
+        <div class="sale-record-actions">
+          <button onclick="editSaleRecord('${r.id}')" title="修改">✏️</button>
+          <button class="danger" onclick="deleteSaleRecord('${r.id}')" title="刪除">🗑</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+};
+
+function fillSaleLineWithCode(el, code, qty) {
+  const option = ALL_OPTIONS.find((o) => o.code === code);
+  const trigger = el.querySelector('[data-role="product"]');
+  if (option && trigger) {
+    trigger.dataset.value = option.code;
+    trigger.textContent = option.label;
+    trigger.classList.remove("placeholder");
+    trigger.insertAdjacentHTML("beforeend", `<span class="chevron">▾</span>`);
+  }
+  const qtyInput = el.querySelector('[data-role="qty"]');
+  if (qtyInput) qtyInput.value = qty;
+}
+
+window.editSaleRecord = function (id) {
+  const record = salesList.find((r) => r.id === id);
+  if (!record) return;
+  document.getElementById("saleCustomer").value = record.customer || "";
+  document.getElementById("saleLines").innerHTML = "";
+  saleLineCount = 0;
+  (record.items || []).forEach((item) => {
+    addSaleLine();
+    const el = document.getElementById("saleLines").lastElementChild;
+    fillSaleLineWithCode(el, item.code, item.qty);
+  });
+  if (!record.items || record.items.length === 0) addSaleLine();
+  updateSaleTotal();
+  editingSaleId = id;
+  document.getElementById("saleSubmitBtn").textContent = "更新此筆";
+  document.getElementById("editingBanner").innerHTML =
+    `<div class="editing-banner"><span>正在修改這筆紀錄</span><button onclick="cancelEditSale()">取消</button></div>`;
+  switchTab("sale");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+window.cancelEditSale = function () {
+  editingSaleId = null;
+  document.getElementById("saleSubmitBtn").textContent = "送出銷售紀錄";
+  document.getElementById("editingBanner").innerHTML = "";
+  document.getElementById("saleCustomer").value = "";
+  document.getElementById("saleLines").innerHTML = "";
+  saleLineCount = 0;
+  addSaleLine();
+  updateSaleTotal();
+};
+
+window.deleteSaleRecord = async function (id) {
+  if (!confirm("確定要刪除這筆銷售紀錄嗎?")) return;
+  if (previewMode) {
+    salesList = salesList.filter((r) => r.id !== id);
+    renderSalesList();
+    return;
+  }
+  try {
+    await addDoc(collection(db, "pendingActions"), {
+      type: "deleteSale", saleId: id, date: todayISO(), createdAt: serverTimestamp(), synced: false,
+    });
+  } catch (e) {
+    alert("刪除失敗:" + e.message);
+  }
+};
+
 window.submitSale = async function () {
   const customer = document.getElementById("saleCustomer").value.trim();
   const lines = getSaleLines();
@@ -715,20 +841,30 @@ window.submitSale = async function () {
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
   try {
-    await addDoc(collection(db, "pendingActions"), {
-      type: "sale",
-      customer,
-      items: lines,
-      date: todayISO(),
-      createdAt: serverTimestamp(),
-      synced: false,
-    });
-    statusEl.textContent = "已送出,電腦開著時會自動同步進 Excel";
+    if (editingSaleId) {
+      await addDoc(collection(db, "pendingActions"), {
+        type: "editSale",
+        saleId: editingSaleId,
+        customer,
+        items: lines,
+        date: todayISO(),
+        createdAt: serverTimestamp(),
+        synced: false,
+      });
+      statusEl.textContent = "已送出修改,電腦開著時會自動同步進 Excel";
+    } else {
+      await addDoc(collection(db, "pendingActions"), {
+        type: "sale",
+        customer,
+        items: lines,
+        date: todayISO(),
+        createdAt: serverTimestamp(),
+        synced: false,
+      });
+      statusEl.textContent = "已送出,電腦開著時會自動同步進 Excel";
+    }
     statusEl.className = "status-msg ok";
-    document.getElementById("saleCustomer").value = "";
-    document.getElementById("saleLines").innerHTML = "";
-    saleLineCount = 0;
-    addSaleLine();
+    cancelEditSale();
   } catch (e) {
     statusEl.textContent = "送出失敗:" + e.message;
     statusEl.className = "status-msg err";
