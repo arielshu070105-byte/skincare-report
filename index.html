@@ -296,7 +296,7 @@ function productOptionsHtml(selectedCode) {
     `<option value="${escapeHtml(p.code)}" ${p.code === selectedCode ? "selected" : ""}>${escapeHtml(p.name)}(${escapeHtml(p.code)})</option>`
   ).join("");
   const comboOpts = COMBOS.map((c) =>
-    `<option value="${escapeHtml(c.code)}" ${c.code === selectedCode ? "selected" : ""}>🎁 ${escapeHtml(c.name)}(套餐)</option>`
+    `<option value="${escapeHtml(c.code)}" ${c.code === selectedCode ? "selected" : ""}>${escapeHtml(c.name)}(套餐)</option>`
   ).join("");
   return `<option value="">選擇商品…</option>${productOpts}${comboOpts}`;
 }
