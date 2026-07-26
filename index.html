@@ -782,12 +782,33 @@ window.renderPerformance = function renderPerformance() {
     barW = (w - barGap * (bars.length - 1)) / bars.length;
   }
   const scaleMax = max || 1;
-  const rects = bars.map((b, i) => {
-    const x = i * (barW + barGap);
+  const points = bars.map((b, i) => {
+    const x = i * (barW + barGap) + barW / 2;
     const barH = Math.max(2, (b.total / scaleMax) * chartH);
     const y = padTop + (chartH - barH);
-    const fill = b.isToday ? "var(--accent)" : "var(--ink-soft)";
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="4" fill="${fill}" ${b.isToday ? "" : "opacity=\"0.45\""} />`;
+    return { x, y, isToday: b.isToday };
+  });
+
+  function smoothLinePath(pts) {
+    if (pts.length === 0) return "";
+    let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i], p1 = pts[i + 1];
+      const cpx = ((p0.x + p1.x) / 2).toFixed(1);
+      d += ` C${cpx},${p0.y.toFixed(1)} ${cpx},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  const linePath = smoothLinePath(points);
+  const baselineY = (padTop + chartH).toFixed(1);
+  const areaPath = points.length > 1
+    ? `${linePath} L${points[points.length - 1].x.toFixed(1)},${baselineY} L${points[0].x.toFixed(1)},${baselineY} Z`
+    : "";
+  const dots = points.map((p) => {
+    const r = p.isToday ? 4 : 2.5;
+    const fill = p.isToday ? "var(--accent)" : "var(--ink-soft)";
+    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${fill}" />`;
   }).join("");
   const labels = bars.map((b, i) => {
     const x = i * (barW + barGap) + barW / 2;
@@ -800,7 +821,15 @@ window.renderPerformance = function renderPerformance() {
     <div class="perf-rv-label">RV 總計 ${formatCurrency(rvSum)}</div>
     <div class="perf-chart-wrap${scrollable ? " scrollable" : ""}">
       <svg width="${scrollable ? w : "100%"}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
-        ${rects}
+        <defs>
+          <linearGradient id="perfAreaGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--ink-soft)" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="var(--ink-soft)" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="${areaPath}" fill="url(#perfAreaGradient)" stroke="none"/>
+        <path d="${linePath}" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}
         ${labels}
       </svg>
     </div>
