@@ -242,9 +242,22 @@
 
   <div class="bottom-nav">
     <div class="bottom-nav-inner">
-      <button class="nav-icon-btn active" id="navBtnSale" onclick="switchTab('sale')" title="登記銷售">🛒</button>
-      <button class="nav-icon-btn" id="navBtnAdjust" onclick="switchTab('adjust')" title="庫存修正">📦</button>
-      <button class="nav-icon-btn" id="navBtnPerformance" onclick="switchTab('performance')" title="績效">📊</button>
+      <button class="nav-icon-btn active" id="navBtnSale" onclick="switchTab('sale')" title="登記銷售">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+          <circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/>
+          <path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 8H6"/>
+        </svg>
+      </button>
+      <button class="nav-icon-btn" id="navBtnAdjust" onclick="switchTab('adjust')" title="庫存修正">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+          <path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>
+        </svg>
+      </button>
+      <button class="nav-icon-btn" id="navBtnPerformance" onclick="switchTab('performance')" title="績效">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+          <path d="M4 20V11"/><path d="M12 20V4"/><path d="M20 20v-6"/>
+        </svg>
+      </button>
     </div>
   </div>
 
