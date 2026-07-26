@@ -245,6 +245,12 @@
   .stock-record-name { font-size: 14px; color: var(--ink); }
   .stock-record-code { font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
   .stock-record-qty { font-size: 16px; font-weight: 900; color: var(--ink); flex-shrink: 0; }
+  .stock-record { cursor: pointer; }
+  .stock-record:active { background: var(--accent-soft); }
+
+  /* ── 設定 ─────────────────────────── */
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0 14px; }
+  .settings-row-label { font-size: 13.5px; color: var(--ink-soft); flex: 1; }
 
   #setupNotice, #loginScreen, #app { display: none; }
 </style>
@@ -313,13 +319,18 @@
     <div class="tab-view" id="tabAdjust">
       <div class="card">
         <h2>庫存修正</h2>
-        <p>盤點後發現數量不對,填入實際數字就好,差額會自動算出來。</p>
+        <p>盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。</p>
         <label>商品</label>
         <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
         <label for="adjustQty">實際庫存數量</label>
         <input id="adjustQty" type="number" inputmode="numeric" min="0">
         <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjust()">送出庫存修正</button>
         <p id="adjustStatus" class="status-msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>庫存檢表</h2>
+        <div id="stockListContent"></div>
       </div>
     </div>
 
@@ -351,10 +362,19 @@
       </div>
     </div>
 
-    <div class="tab-view" id="tabStock">
+    <div class="tab-view" id="tabSettings">
       <div class="card">
-        <h2>庫存檢表</h2>
-        <div id="stockListContent"></div>
+        <h2>設定</h2>
+        <label>大頭貼</label>
+        <div class="settings-row">
+          <div class="settings-row-label">點頭像圓圈或這裡都可以更換照片</div>
+          <button class="btn-sm" onclick="document.getElementById('avatarInput').click()">更換頭貼</button>
+        </div>
+        <label>帳號</label>
+        <div class="settings-row">
+          <div class="settings-row-label" id="settingsWhoAmI">預覽模式</div>
+          <button class="btn-sm" onclick="doLogout()">登出</button>
+        </div>
       </div>
     </div>
   </div>
@@ -381,9 +401,9 @@
           <path d="M4 9L12 3L20 9L12 21L4 9Z"/><path d="M4 9H20"/><path d="M9 9L12 21"/><path d="M15 9L12 21"/>
         </svg>
       </button>
-      <button class="nav-icon-btn" id="navBtnStock" onclick="switchTab('stock')" title="庫存檢表">
+      <button class="nav-icon-btn" id="navBtnSettings" onclick="switchTab('settings')" title="設定">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
-          <path d="M7 4.5h10v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-16z"/><path d="M9 3.5h6a1 1 0 0 1 1 1v1.5H8V4.5a1 1 0 0 1 1-1z"/><path d="M9.5 11l1.5 1.5L14 9"/><path d="M9 16h6"/>
+          <circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/>
         </svg>
       </button>
     </div>
@@ -471,6 +491,7 @@ setInterval(updateStatusDot, 30 * 1000);
 async function onLoggedIn(user) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
+  document.getElementById("settingsWhoAmI").textContent = user.email;
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
 
@@ -522,6 +543,7 @@ window.previewOnly = function () {
   previewMode = true;
   document.getElementById("setupNotice").style.display = "none";
   document.getElementById("app").style.display = "block";
+  document.getElementById("settingsWhoAmI").textContent = "預覽模式(未連資料庫)";
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
   dailyTotals = fakePerformanceData();
@@ -626,12 +648,12 @@ window.switchTab = function (tab) {
   document.getElementById("tabAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("tabPerformance").classList.toggle("active", tab === "performance");
   document.getElementById("tabDiamond").classList.toggle("active", tab === "diamond");
-  document.getElementById("tabStock").classList.toggle("active", tab === "stock");
+  document.getElementById("tabSettings").classList.toggle("active", tab === "settings");
   document.getElementById("navBtnSale").classList.toggle("active", tab === "sale");
   document.getElementById("navBtnAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("navBtnPerformance").classList.toggle("active", tab === "performance");
   document.getElementById("navBtnDiamond").classList.toggle("active", tab === "diamond");
-  document.getElementById("navBtnStock").classList.toggle("active", tab === "stock");
+  document.getElementById("navBtnSettings").classList.toggle("active", tab === "settings");
 };
 
 // ── 績效 ─────────────────────────────────
@@ -1138,7 +1160,7 @@ window.renderStockList = function renderStockList() {
     return;
   }
   el.innerHTML = stockList.map((s) => `
-    <div class="stock-record">
+    <div class="stock-record" onclick="selectStockForAdjust('${escapeHtml(s.code).replace(/'/g, "\\'")}')">
       <div>
         <div class="stock-record-name">${escapeHtml(s.name || s.code)}</div>
         <div class="stock-record-code">${escapeHtml(s.code)}</div>
@@ -1146,6 +1168,20 @@ window.renderStockList = function renderStockList() {
       <div class="stock-record-qty">${s.stock}</div>
     </div>
   `).join("");
+};
+
+// 點庫存檢表裡的商品,直接把該商品帶進上面的庫存修正表單,不用再從選單裡搜一次
+window.selectStockForAdjust = function (code) {
+  const option = PRODUCT_OPTIONS.find((o) => o.code === code);
+  const target = document.getElementById("adjustProduct");
+  if (option && target) {
+    target.dataset.value = option.code;
+    target.textContent = option.label;
+    target.classList.remove("placeholder");
+    target.insertAdjacentHTML("beforeend", `<span class="chevron">▾</span>`);
+  }
+  const qtyInput = document.getElementById("adjustQty");
+  if (qtyInput) { qtyInput.focus(); qtyInput.select(); }
 };
 
 // ── 庫存修正 ─────────────────────────────
