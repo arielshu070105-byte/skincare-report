@@ -184,6 +184,21 @@
   .editing-banner { background: rgba(143,176,214,0.16); color: var(--accent); font-size: 13px; font-weight: 700; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
   .editing-banner button { background: none; color: var(--accent); text-decoration: underline; font-weight: 700; font-size: 12.5px; }
 
+  /* ── 種鑽紀錄 ─────────────────────── */
+  .diamond-add-row { display: flex; gap: 8px; align-items: center; }
+  .diamond-add-row input { flex: 1; margin: 0; }
+  .diamond-add-row button { flex-shrink: 0; padding: 12px 16px; }
+  .diamond-record { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .diamond-record:last-child { border-bottom: none; }
+  .diamond-record-main { flex: 1; min-width: 0; }
+  .diamond-record-top { display: flex; align-items: center; gap: 6px; }
+  .diamond-record-customer { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+  .diamond-due-badge { font-size: 13px; }
+  .diamond-record-progress { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .diamond-record-date { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+  .diamond-record .btn-sm { flex-shrink: 0; }
+  .diamond-record .btn-sm:disabled { opacity: 0.4; }
+
   #setupNotice, #loginScreen, #app { display: none; }
 </style>
 </head>
@@ -267,6 +282,22 @@
         <div id="perfContent"></div>
       </div>
     </div>
+
+    <div class="tab-view" id="tabDiamond">
+      <div class="card">
+        <h2>種鑽紀錄</h2>
+        <label for="diamondNewCustomer">新增要種鑽的客人</label>
+        <div class="diamond-add-row">
+          <input id="diamondNewCustomer" placeholder="輸入客戶姓名">
+          <button class="btn-sm" onclick="addDiamondCustomer()">新增</button>
+        </div>
+        <p id="diamondStatus" class="status-msg"></p>
+      </div>
+      <div class="card">
+        <h2>種鑽名單</h2>
+        <div id="diamondListContent"></div>
+      </div>
+    </div>
   </div>
 
   <div class="bottom-nav">
@@ -285,6 +316,11 @@
       <button class="nav-icon-btn" id="navBtnPerformance" onclick="switchTab('performance')" title="績效">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
           <path d="M4 20V11"/><path d="M12 20V4"/><path d="M20 20v-6"/>
+        </svg>
+      </button>
+      <button class="nav-icon-btn" id="navBtnDiamond" onclick="switchTab('diamond')" title="種鑽紀錄">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+          <path d="M4 9L12 3L20 9L12 21L4 9Z"/><path d="M4 9H20"/><path d="M9 9L12 21"/><path d="M15 9L12 21"/>
         </svg>
       </button>
     </div>
@@ -321,6 +357,7 @@ let perfUnsubscribe = null;
 let lastSyncAt = null; // 本機同步程式最後一次更新績效資料的時間
 let salesList = [];
 let editingSaleId = null;
+let diamondCustomers = [];
 
 function setWhoAmI(text) {
   document.getElementById("whoAmI").textContent = text;
@@ -366,9 +403,11 @@ async function onLoggedIn(user) {
   perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
     dailyTotals = (snap.exists() && snap.data().dailyTotals) || [];
     salesList = (snap.exists() && snap.data().salesList) || [];
+    diamondCustomers = (snap.exists() && snap.data().diamondCustomers) || [];
     lastSyncAt = (snap.exists() && snap.data().updatedAt && snap.data().updatedAt.toDate) ? snap.data().updatedAt.toDate() : new Date();
     renderPerformance();
     renderSalesList();
+    renderDiamondList();
     updateStatusDot();
   }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); updateStatusDot(); });
 }
@@ -397,6 +436,8 @@ window.previewOnly = function () {
   renderPerformance();
   salesList = fakeSalesList();
   renderSalesList();
+  diamondCustomers = fakeDiamondCustomers();
+  renderDiamondList();
   updateStatusDot();
 };
 
@@ -405,6 +446,14 @@ function fakeSalesList() {
     { id: "fake-1", date: "2026-07-26", customer: "蔡宜穎", items: [{ code: "1號", name: "多肽化妝水(200ml)", qty: 2 }, { code: "3號", name: "透明質酸精華(30ml)", qty: 1 }], total: 2444 },
     { id: "fake-2", date: "2026-07-25", customer: "斑斑", items: [{ code: "4+5+6", name: "維生素C三件套裝(1set)", qty: 1 }], total: 4398 },
     { id: "fake-3", date: "2026-07-24", customer: "王愷均", items: [{ code: "鑽石面膜", name: "鑽石面膜", qty: 1 }], total: 4398 },
+  ];
+}
+
+function fakeDiamondCustomers() {
+  return [
+    { customer: "蔡宜穎", diamondCount: 2, hasTrial: true, lastDate: "2026-06-01", isDue: true },
+    { customer: "王愷均", diamondCount: 6, hasTrial: false, lastDate: "2026-07-10", isDue: false },
+    { customer: "斑斑", diamondCount: 0, hasTrial: false, lastDate: null, isDue: false },
   ];
 }
 
@@ -482,9 +531,11 @@ window.switchTab = function (tab) {
   document.getElementById("tabSale").classList.toggle("active", tab === "sale");
   document.getElementById("tabAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("tabPerformance").classList.toggle("active", tab === "performance");
+  document.getElementById("tabDiamond").classList.toggle("active", tab === "diamond");
   document.getElementById("navBtnSale").classList.toggle("active", tab === "sale");
   document.getElementById("navBtnAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("navBtnPerformance").classList.toggle("active", tab === "performance");
+  document.getElementById("navBtnDiamond").classList.toggle("active", tab === "diamond");
 };
 
 // ── 績效 ─────────────────────────────────
@@ -870,6 +921,80 @@ window.submitSale = async function () {
     statusEl.className = "status-msg err";
   } finally {
     btn.disabled = false;
+  }
+};
+
+// ── 種鑽紀錄(查看進度/新增客人/種下一顆) ──
+window.renderDiamondList = function renderDiamondList() {
+  const el = document.getElementById("diamondListContent");
+  if (!el) return;
+  if (!diamondCustomers || diamondCustomers.length === 0) {
+    el.innerHTML = `<div class="list-empty">還沒有種鑽紀錄。</div>`;
+    return;
+  }
+  el.innerHTML = diamondCustomers.map((c, i) => {
+    const full = c.diamondCount >= 6;
+    return `
+      <div class="diamond-record">
+        <div class="diamond-record-main">
+          <div class="diamond-record-top">
+            <span class="diamond-record-customer">${escapeHtml(c.customer)}</span>
+            ${c.isDue ? `<span class="diamond-due-badge">🔔</span>` : ""}
+          </div>
+          <div class="diamond-record-progress">已種 ${c.diamondCount}/6 顆${c.hasTrial ? " · 已體驗" : ""}</div>
+          <div class="diamond-record-date">${c.lastDate ? escapeHtml(c.lastDate) : "尚未開始"}</div>
+        </div>
+        <button class="btn-sm" ${full ? "disabled" : ""} onclick="plantDiamondAt(${i})">${full ? "已種滿" : "種下一顆"}</button>
+      </div>
+    `;
+  }).join("");
+};
+
+async function doPlantDiamond(customerName) {
+  const name = (customerName || "").trim();
+  if (!name) return;
+  if (previewMode) {
+    const existing = diamondCustomers.find((c) => c.customer === name);
+    if (existing) {
+      if (existing.diamondCount < 6) existing.diamondCount++;
+      existing.lastDate = todayISO();
+      existing.isDue = false;
+    } else {
+      diamondCustomers.push({ customer: name, diamondCount: 1, hasTrial: false, lastDate: todayISO(), isDue: false });
+    }
+    renderDiamondList();
+    return;
+  }
+  await addDoc(collection(db, "pendingActions"), {
+    type: "plantDiamond", customer: name, date: todayISO(), createdAt: serverTimestamp(), synced: false,
+  });
+}
+
+window.plantDiamondAt = async function (i) {
+  const c = diamondCustomers[i];
+  if (!c) return;
+  try {
+    await doPlantDiamond(c.customer);
+  } catch (e) {
+    alert("送出失敗:" + e.message);
+  }
+};
+
+window.addDiamondCustomer = async function () {
+  const input = document.getElementById("diamondNewCustomer");
+  const name = input.value.trim();
+  const statusEl = document.getElementById("diamondStatus");
+  if (!name) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
+  statusEl.textContent = "送出中…";
+  statusEl.className = "status-msg";
+  try {
+    await doPlantDiamond(name);
+    input.value = "";
+    statusEl.textContent = previewMode ? "已加入(預覽模式,未真的送出)" : "已送出,電腦開著時會自動同步進 Excel";
+    statusEl.className = "status-msg ok";
+  } catch (e) {
+    statusEl.textContent = "送出失敗:" + e.message;
+    statusEl.className = "status-msg err";
   }
 };
 
