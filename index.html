@@ -52,11 +52,49 @@
     font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
-  select, input[type="number"] {
+  input[type="number"] {
     width: 100%; min-height: 48px; font-family: inherit; font-size: 15px;
     appearance: auto; -webkit-appearance: auto;
     background: initial; border: initial; border-radius: initial; padding: 8px; backdrop-filter: none; -webkit-backdrop-filter: none;
   }
+  .picker-trigger {
+    width: 100%; min-height: 48px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--card-border);
+    font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink); text-align: left;
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .picker-trigger.placeholder { color: var(--ink-soft); }
+  .picker-trigger .chevron { color: var(--ink-soft); font-size: 12px; flex-shrink: 0; }
+
+  .picker-overlay {
+    position: fixed; inset: 0; background: rgba(50,60,80,0.35);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: none; align-items: flex-end; justify-content: center; z-index: 100;
+  }
+  .picker-overlay.open { display: flex; }
+  .picker-sheet {
+    width: 100%; max-width: 480px; max-height: 78vh; background: rgba(255,255,255,0.88);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    border-radius: 28px 28px 0 0; box-shadow: 0 -20px 50px rgba(110,130,170,0.3);
+    display: flex; flex-direction: column; padding: 10px 18px 18px;
+    animation: sheet-up 0.22s ease-out;
+  }
+  @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .picker-handle { width: 40px; height: 4px; border-radius: 999px; background: var(--line); margin: 6px auto 14px; }
+  .picker-search {
+    width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--card-border);
+    font-family: inherit; font-size: 15px; background: rgba(255,255,255,0.7); color: var(--ink);
+    margin-bottom: 10px; flex-shrink: 0;
+  }
+  .picker-search:focus { outline: none; border-color: var(--accent); }
+  .picker-list { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .picker-item {
+    width: 100%; text-align: left; padding: 13px 12px; border-radius: 12px; font-size: 15px;
+    color: var(--ink); background: none; margin-bottom: 2px;
+  }
+  .picker-item:active { background: var(--accent-soft); }
+  .picker-item.combo { color: var(--accent); font-weight: 700; }
+  .picker-empty { text-align: center; color: var(--ink-soft); font-size: 14px; padding: 20px; }
   input:focus, textarea:focus { outline: none; border-color: var(--accent); background: rgba(255,255,255,0.75); }
   button { font-family: inherit; cursor: pointer; border: none; }
   .btn-primary { width: 100%; min-height: 50px; padding: 15px; border-radius: 999px; background: linear-gradient(135deg, #a4c3e5, #8fb0d6); color: var(--accent-ink); font-weight: 700; font-size: 15px; margin-top: 18px; letter-spacing: 0.03em; box-shadow: 0 12px 28px rgba(143,176,214,0.5); transition: transform 0.1s ease; }
@@ -161,13 +199,21 @@
       <div class="card">
         <h2>庫存修正</h2>
         <p>盤點後發現數量不對,填入實際數字就好,差額會自動算出來。</p>
-        <label for="adjustProduct">商品</label>
-        <select id="adjustProduct"></select>
+        <label>商品</label>
+        <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
         <label for="adjustQty">實際庫存數量</label>
         <input id="adjustQty" type="number" inputmode="numeric" min="0">
         <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjust()">送出庫存修正</button>
         <p id="adjustStatus" class="status-msg"></p>
       </div>
+    </div>
+  </div>
+
+  <div id="pickerOverlay" class="picker-overlay" onclick="if(event.target===this) closePicker()">
+    <div class="picker-sheet">
+      <div class="picker-handle"></div>
+      <input id="pickerSearch" class="picker-search" placeholder="搜尋商品…" oninput="renderPickerList(this.value)">
+      <div id="pickerList" class="picker-list"></div>
     </div>
   </div>
 
@@ -290,25 +336,71 @@ window.switchTab = function (tab) {
   document.getElementById("tabBtnAdjust").classList.toggle("active", tab === "adjust");
 };
 
-// ── 登記銷售 ─────────────────────────────
-function productOptionsHtml(selectedCode) {
-  const productOpts = PRODUCTS.map((p) =>
-    `<option value="${escapeHtml(p.code)}" ${p.code === selectedCode ? "selected" : ""}>${escapeHtml(p.name)}(${escapeHtml(p.code)})</option>`
-  ).join("");
-  const comboOpts = COMBOS.map((c) =>
-    `<option value="${escapeHtml(c.code)}" ${c.code === selectedCode ? "selected" : ""}>${escapeHtml(c.name)}(套餐)</option>`
-  ).join("");
-  return `<option value="">選擇商品…</option>${productOpts}${comboOpts}`;
-}
+// ── 商品選擇器(卡片式,取代原生下拉) ──────
+const PRODUCT_OPTIONS = PRODUCTS.map((p) => ({ code: p.code, label: `${p.name}(${p.code})`, isCombo: false }));
+const ALL_OPTIONS = [
+  ...PRODUCT_OPTIONS,
+  ...COMBOS.map((c) => ({ code: c.code, label: `【套組】${c.name}`, isCombo: true })),
+];
+let pickerTargetId = null;
+let pickerOptionsList = ALL_OPTIONS;
 
+window.openPicker = function (targetId, optionsList) {
+  pickerTargetId = targetId;
+  pickerOptionsList = optionsList || ALL_OPTIONS;
+  document.getElementById("pickerSearch").value = "";
+  renderPickerList("");
+  document.getElementById("pickerOverlay").classList.add("open");
+  document.getElementById("pickerSearch").focus();
+};
+
+window.closePicker = function () {
+  document.getElementById("pickerOverlay").classList.remove("open");
+  pickerTargetId = null;
+};
+
+window.openAdjustPicker = function () {
+  openPicker("adjustProduct", PRODUCT_OPTIONS);
+};
+
+window.renderPickerList = function (filter) {
+  const q = filter.trim().toLowerCase();
+  const matches = pickerOptionsList.filter((o) => !q || o.label.toLowerCase().includes(q) || o.code.toLowerCase().includes(q));
+  const listEl = document.getElementById("pickerList");
+  if (matches.length === 0) {
+    listEl.innerHTML = `<div class="picker-empty">找不到符合的商品</div>`;
+    return;
+  }
+  listEl.innerHTML = matches.map((o) =>
+    `<button type="button" class="picker-item ${o.isCombo ? "combo" : ""}" onclick="selectPickerOption('${escapeHtml(o.code).replace(/'/g, "\\'")}')">${escapeHtml(o.label)}</button>`
+  ).join("");
+};
+
+window.selectPickerOption = function (code) {
+  const option = ALL_OPTIONS.find((o) => o.code === code);
+  if (!option) return;
+  const target = document.getElementById(pickerTargetId) || document.querySelector(`[data-picker-id="${pickerTargetId}"]`);
+  if (target) {
+    target.dataset.value = option.code;
+    target.textContent = option.label;
+    target.classList.remove("placeholder");
+    target.insertAdjacentHTML("beforeend", `<span class="chevron">▾</span>`);
+  }
+  closePicker();
+  if (pickerTargetId === "adjustProduct") { /* no-op, value already set */ }
+  else { updateSaleTotal(); }
+};
+
+// ── 登記銷售 ─────────────────────────────
 window.addSaleLine = function () {
   const id = "line" + (++saleLineCount);
   const container = document.getElementById("saleLines");
   const div = document.createElement("div");
   div.className = "line-item";
   div.id = id;
+  const pickerId = id + "-picker";
   div.innerHTML = `
-    <select onchange="updateSaleTotal()" data-role="product">${productOptionsHtml()}</select>
+    <button type="button" class="picker-trigger placeholder" data-role="product" data-value="" data-picker-id="${pickerId}" onclick="openPicker('${pickerId}')">選擇商品…<span class="chevron">▾</span></button>
     <input type="number" min="1" value="1" inputmode="numeric" data-role="qty" onchange="updateSaleTotal()">
     <button class="remove-btn" onclick="removeSaleLine('${id}')">×</button>
     <div class="subtotal" data-role="subtotal"></div>
@@ -326,7 +418,7 @@ window.removeSaleLine = function (id) {
 function getSaleLines() {
   const lines = [];
   document.querySelectorAll("#saleLines .line-item").forEach((el) => {
-    const code = el.querySelector('[data-role="product"]').value;
+    const code = el.querySelector('[data-role="product"]').dataset.value;
     const qty = Number(el.querySelector('[data-role="qty"]').value) || 0;
     const product = PRODUCTS.find((p) => p.code === code);
     const combo = !product ? COMBOS.find((c) => c.code === code) : null;
@@ -389,11 +481,15 @@ window.submitSale = async function () {
 
 // ── 庫存修正 ─────────────────────────────
 window.renderAdjustOptions = function renderAdjustOptions() {
-  document.getElementById("adjustProduct").innerHTML = productOptionsHtml();
+  const btn = document.getElementById("adjustProduct");
+  btn.dataset.value = "";
+  btn.textContent = "選擇商品…";
+  btn.classList.add("placeholder");
+  btn.insertAdjacentHTML("beforeend", `<span class="chevron">▾</span>`);
 };
 
 window.submitAdjust = async function () {
-  const code = document.getElementById("adjustProduct").value;
+  const code = document.getElementById("adjustProduct").dataset.value;
   const targetQty = Number(document.getElementById("adjustQty").value);
   const statusEl = document.getElementById("adjustStatus");
   const btn = document.getElementById("adjustSubmitBtn");
