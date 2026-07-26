@@ -27,6 +27,5 @@ export const PRODUCTS = [
   { code: "緊緻安瓶", name: "緊緻安瓶", price: 5000 },
   { code: "控糖瘦身飲", name: "控糖瘦身飲", price: 1080 },
   { code: "黑蒜魚油", name: "黑蒜魚油", price: 1080 },
-  { code: "玻尿酸", name: "7*2", price: 5500 },
   { code: "抗敏乳液", name: "1組四條", price: 3880 },
 ];
