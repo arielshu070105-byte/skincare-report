@@ -106,8 +106,12 @@
   .center-screen textarea { font-family: monospace; font-size: 12px; min-height: 110px; }
   .brand-wordmark { font-size: 28px; font-weight: 900; letter-spacing: 0.12em; color: var(--ink); margin-bottom: 2px; }
   .brand-subtitle { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
-  .app-brand { font-size: 15px; font-weight: 900; letter-spacing: 0.08em; color: var(--ink); margin-bottom: 18px; }
-  .app-brand span { font-weight: 700; letter-spacing: 0.14em; color: var(--accent); font-size: 11px; }
+  .app-brand-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .app-brand { font-size: 22px; font-weight: 900; letter-spacing: 0.06em; color: var(--ink); }
+  .app-brand span { font-weight: 700; letter-spacing: 0.12em; color: var(--accent); font-size: 13px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-soft); flex-shrink: 0; transition: background 0.2s ease; box-shadow: 0 0 0 3px rgba(0,0,0,0); }
+  .status-dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(111,185,143,0.7); }
+  .status-dot.stale { background: var(--danger); box-shadow: 0 0 8px rgba(224,121,111,0.6); }
 
   .card {
     background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius);
@@ -160,7 +164,7 @@
     background: rgba(255,255,255,0.35); border: 1px solid var(--card-border); box-shadow: var(--shadow);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
-  .who-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; box-shadow: 0 4px 10px rgba(143,176,214,0.5); background-size: cover; background-position: center; cursor: pointer; overflow: hidden; }
+  .who-avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0; box-shadow: 0 4px 10px rgba(143,176,214,0.5); background-size: cover; background-position: center; cursor: pointer; overflow: hidden; }
   .who-row .who-email { flex: 1; font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .who-row button { background: none; color: var(--accent); font-weight: 700; font-size: 12.5px; flex-shrink: 0; }
 
@@ -192,7 +196,10 @@
   </div>
 
   <div id="app">
-    <div class="app-brand">CHARIS <span>INVENTORY</span></div>
+    <div class="app-brand-row">
+      <div class="app-brand">CHARIS <span>INVENTORY</span></div>
+      <div class="status-dot" id="statusDot" title="連線狀態"></div>
+    </div>
     <div class="who-row">
       <div class="who-avatar" id="whoAvatar" onclick="document.getElementById('avatarInput').click()">👤</div>
       <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="onAvatarSelected(event)">
@@ -289,11 +296,33 @@ let previewMode = false;
 let dailyTotals = [];
 let perfRange = "week";
 let perfUnsubscribe = null;
+let lastSyncAt = null; // 本機同步程式最後一次更新績效資料的時間
 
 function setWhoAmI(text) {
   document.getElementById("whoAmI").textContent = text;
   document.getElementById("whoAvatar").textContent = text.trim().charAt(0).toUpperCase() || "👤";
 }
+
+const SYNC_STALE_MS = 6 * 60 * 1000; // 同步程式每 2 分鐘跑一次,超過 6 分鐘沒更新就算異常
+
+function updateStatusDot() {
+  const dot = document.getElementById("statusDot");
+  if (!dot) return;
+  if (previewMode) {
+    dot.className = "status-dot ok";
+    dot.title = "預覽模式";
+    return;
+  }
+  if (!lastSyncAt) {
+    dot.className = "status-dot";
+    dot.title = "尚未收到同步資料";
+    return;
+  }
+  const fresh = (Date.now() - lastSyncAt.getTime()) < SYNC_STALE_MS;
+  dot.className = "status-dot " + (fresh ? "ok" : "stale");
+  dot.title = fresh ? "連線正常,本機同步程式運作中" : "本機同步程式可能沒開,或電腦沒開著";
+}
+setInterval(updateStatusDot, 30 * 1000);
 
 async function onLoggedIn(user) {
   document.getElementById("loginScreen").style.display = "none";
@@ -312,8 +341,10 @@ async function onLoggedIn(user) {
   if (perfUnsubscribe) perfUnsubscribe();
   perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
     dailyTotals = (snap.exists() && snap.data().dailyTotals) || [];
+    lastSyncAt = (snap.exists() && snap.data().updatedAt && snap.data().updatedAt.toDate) ? snap.data().updatedAt.toDate() : new Date();
     renderPerformance();
-  }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); });
+    updateStatusDot();
+  }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); updateStatusDot(); });
 }
 
 function fakePerformanceData() {
@@ -338,6 +369,7 @@ window.previewOnly = function () {
   renderAdjustOptions();
   dailyTotals = fakePerformanceData();
   renderPerformance();
+  updateStatusDot();
 };
 
 function boot() {
