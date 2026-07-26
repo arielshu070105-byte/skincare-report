@@ -316,6 +316,19 @@ async function onLoggedIn(user) {
   }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); });
 }
 
+function fakePerformanceData() {
+  const today = new Date();
+  const totals = [4155, 0, 2830, 1900, 5200, 3100, 0, 4780, 2400, 6100, 1500, 3900];
+  const rows = [];
+  totals.forEach((total, i) => {
+    if (total === 0) return; // 模擬有些天沒有銷售
+    const d = new Date(today);
+    d.setDate(today.getDate() - (totals.length - 1 - i));
+    rows.push({ date: d.toISOString().slice(0, 10), total });
+  });
+  return rows;
+}
+
 window.previewOnly = function () {
   previewMode = true;
   document.getElementById("setupNotice").style.display = "none";
@@ -323,7 +336,7 @@ window.previewOnly = function () {
   setWhoAmI("預覽模式(未連資料庫)");
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
-  dailyTotals = [];
+  dailyTotals = fakePerformanceData();
   renderPerformance();
 };
 
