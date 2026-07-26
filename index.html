@@ -538,28 +538,6 @@ async function onLoggedIn(user) {
   }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); updateStatusDot(); });
 }
 
-function fakePerformanceData() {
-  const today = new Date();
-  const totals = [4155, 0, 2830, 1900, 5200, 3100, 0, 4780, 2400, 6100, 1500, 3900];
-  const rows = [];
-  totals.forEach((total, i) => {
-    if (total === 0) return; // 模擬有些天沒有銷售
-    const d = new Date(today);
-    d.setDate(today.getDate() - (totals.length - 1 - i));
-    rows.push({ date: d.toISOString().slice(0, 10), total, rv: Math.round(total * 0.6) });
-  });
-  return rows;
-}
-
-function fakeStockList() {
-  return [
-    { code: "1號", name: "多肽化妝水(200ml)", stock: 12 },
-    { code: "3號", name: "透明質酸精華(30ml)", stock: 5 },
-    { code: "鑽石面膜", name: "鑽石面膜", stock: 0 },
-    { code: "CPR", name: "CPR", stock: 8 },
-  ];
-}
-
 window.previewOnly = function () {
   previewMode = true;
   document.getElementById("setupNotice").style.display = "none";
@@ -567,32 +545,16 @@ window.previewOnly = function () {
   document.getElementById("settingsWhoAmI").textContent = "預覽模式(未連資料庫)";
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
-  dailyTotals = fakePerformanceData();
+  dailyTotals = [];
   renderPerformance();
-  salesList = fakeSalesList();
+  salesList = [];
   renderSalesList();
-  diamondCustomers = fakeDiamondCustomers();
+  diamondCustomers = [];
   renderDiamondList();
-  stockList = fakeStockList();
+  stockList = [];
   renderStockList();
   updateStatusDot();
 };
-
-function fakeSalesList() {
-  return [
-    { id: "fake-1", date: "2026-07-26", customer: "蔡宜穎", items: [{ code: "1號", name: "多肽化妝水(200ml)", qty: 2 }, { code: "3號", name: "透明質酸精華(30ml)", qty: 1 }], total: 2444 },
-    { id: "fake-2", date: "2026-07-25", customer: "斑斑", items: [{ code: "4+5+6", name: "維生素C三件套裝(1set)", qty: 1 }], total: 4398 },
-    { id: "fake-3", date: "2026-07-24", customer: "王愷均", items: [{ code: "鑽石面膜", name: "鑽石面膜", qty: 1 }], total: 4398 },
-  ];
-}
-
-function fakeDiamondCustomers() {
-  return [
-    { customer: "蔡宜穎", diamondCount: 2, hasTrial: true, lastDate: "2026-06-01", isDue: true },
-    { customer: "王愷均", diamondCount: 4, hasTrial: false, lastDate: "2026-07-10", isDue: false },
-    { customer: "斑斑", diamondCount: 0, hasTrial: false, lastDate: null, isDue: false },
-  ];
-}
 
 function boot() {
   const config = loadConfig();
