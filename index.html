@@ -438,6 +438,31 @@ function filterByRange(rows, range) {
   return rows.filter((r) => r.date >= cutoffStr);
 }
 
+const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
+
+// 本週固定顯示週一到週日 7 欄,沒有資料的那天就是 0
+function buildWeekBars(dailyTotals) {
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun..6=Sat
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  const byDate = {};
+  dailyTotals.forEach((r) => { byDate[r.date] = r.total; });
+  const bars = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    bars.push({ label: WEEKDAY_LABELS[i], total: byDate[dateStr] || 0, isToday: dateStr === now.toISOString().slice(0, 10) });
+  }
+  return bars;
+}
+
+function buildDateBars(rows) {
+  return rows.map((r) => ({ label: r.date.slice(5).replace("-", "/"), total: r.total, isToday: false }));
+}
+
 window.__setTestData = function (rows) {
   dailyTotals = rows;
   renderPerformance();
@@ -446,36 +471,49 @@ window.__setTestData = function (rows) {
 window.renderPerformance = function renderPerformance() {
   const el = document.getElementById("perfContent");
   if (!el) return;
-  const rows = filterByRange(dailyTotals, perfRange).slice().sort((a, b) => a.date < b.date ? -1 : 1);
-  if (rows.length === 0) {
-    el.innerHTML = `<div class="perf-empty">還沒有績效資料。<br>電腦開著同步程式跑過一次之後就會顯示。</div>`;
-    return;
-  }
-  const totals = rows.map((r) => r.total);
-  const sum = totals.reduce((a, b) => a + b, 0);
-  const avg = sum / totals.length;
-  const max = Math.max(...totals);
-  const min = Math.min(...totals);
 
-  const w = 320, h = 120, pad = 10;
-  const range = (max - min) || 1;
-  const points = rows.map((r, i) => {
-    const x = rows.length === 1 ? w / 2 : pad + (i / (rows.length - 1)) * (w - pad * 2);
-    const y = h - pad - ((r.total - min) / range) * (h - pad * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const dots = rows.map((r, i) => {
-    const [x, y] = points[i].split(",");
-    return `<circle cx="${x}" cy="${y}" r="3.5" fill="#8fb0d6" />`;
+  let bars;
+  if (perfRange === "week") {
+    bars = buildWeekBars(dailyTotals);
+  } else {
+    const rows = filterByRange(dailyTotals, perfRange).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    if (rows.length === 0) {
+      el.innerHTML = `<div class="perf-empty">還沒有績效資料。<br>電腦開著同步程式跑過一次之後就會顯示。</div>`;
+      return;
+    }
+    bars = buildDateBars(rows);
+  }
+
+  const activeTotals = bars.filter((b) => b.total > 0).map((b) => b.total);
+  const sum = bars.reduce((a, b) => a + b.total, 0);
+  const avg = activeTotals.length ? activeTotals.reduce((a, b) => a + b, 0) / activeTotals.length : 0;
+  const max = activeTotals.length ? Math.max(...activeTotals) : 0;
+  const min = activeTotals.length ? Math.min(...activeTotals) : 0;
+
+  const w = 320, h = 130, padBottom = 22, padTop = 6;
+  const chartH = h - padBottom - padTop;
+  const barGap = 8;
+  const barW = (w - barGap * (bars.length - 1)) / bars.length;
+  const scaleMax = max || 1;
+  const rects = bars.map((b, i) => {
+    const x = i * (barW + barGap);
+    const barH = Math.max(2, (b.total / scaleMax) * chartH);
+    const y = padTop + (chartH - barH);
+    const fill = b.isToday ? "#6f93bf" : "#a9c4e3";
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="4" fill="${fill}" />`;
+  }).join("");
+  const labels = bars.map((b, i) => {
+    const x = i * (barW + barGap) + barW / 2;
+    return `<text x="${x.toFixed(1)}" y="${h - 6}" font-size="11" fill="#8b96ab" text-anchor="middle">${escapeHtml(b.label)}</text>`;
   }).join("");
 
   el.innerHTML = `
     <div class="perf-total-label">${perfRange === "week" ? "本週" : perfRange === "month" ? "本月" : "全部"}總計</div>
     <div class="perf-total-number">${formatCurrency(sum)}</div>
     <div class="perf-chart-wrap">
-      <svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-        <polyline points="${points.join(" ")}" fill="none" stroke="#8fb0d6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
-        ${dots}
+      <svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+        ${rects}
+        ${labels}
       </svg>
     </div>
     <div class="perf-stats-row">
