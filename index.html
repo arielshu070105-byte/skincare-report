@@ -3,72 +3,105 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
-<title>保養品回報</title>
+<title>CHARIS Inventory Management</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b0b0b">
+<meta name="theme-color" content="#eef1f6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0b0b0b;
-    --ink: #f5f0f1;
-    --ink-soft: #b7a9ac;
-    --line: #2c2626;
-    --input-bg: #1c1919;
-    --accent: #e8a2b0;
-    --accent-ink: #2a1116;
-    --glass-bg: rgba(255,255,255,0.05);
-    --glass-border: rgba(255,255,255,0.12);
-    --radius: 16px;
-    --danger: #e5867e;
+    --bg: #eef1f6;
+    --card-bg: rgba(255,255,255,0.6);
+    --card-border: rgba(255,255,255,0.7);
+    --ink: #333c4d;
+    --ink-soft: #8b96ab;
+    --line: rgba(180,195,220,0.35);
+    --input-bg: rgba(255,255,255,0.45);
+    --accent: #8fb0d6;
+    --accent-soft: rgba(143,176,214,0.16);
+    --accent-ink: #ffffff;
+    --radius: 26px;
+    --shadow: 0 20px 50px rgba(110,130,170,0.22), 0 2px 8px rgba(110,130,170,0.1);
+    --danger: #e0796f;
+    --ok: #6fb98f;
+    --blur: blur(22px) saturate(160%);
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; min-height: 100vh;
-    background-color: #0b0b0b;
+    background-color: #e7ecf5;
     background-image:
-      radial-gradient(120% 70% at 50% -10%, rgba(232,162,176,0.14) 0%, transparent 60%),
-      linear-gradient(165deg, #1a1616 0%, #131111 45%, #0a0a0a 100%);
+      radial-gradient(38% 32% at 12% 8%, rgba(255,206,224,0.55) 0%, rgba(255,206,224,0) 70%),
+      radial-gradient(45% 38% at 92% 18%, rgba(178,208,255,0.55) 0%, rgba(178,208,255,0) 70%),
+      radial-gradient(50% 42% at 15% 82%, rgba(200,230,255,0.55) 0%, rgba(200,230,255,0) 70%),
+      radial-gradient(40% 36% at 88% 92%, rgba(220,200,255,0.45) 0%, rgba(220,200,255,0) 70%);
     background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--ink);
     font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  #shell { max-width: 480px; margin: 0 auto; padding: 24px 18px 60px; min-height: 100vh; }
-  h1 { font-size: 22px; font-weight: 900; margin: 0 0 4px; }
-  h2 { font-size: 17px; font-weight: 900; margin: 0 0 12px; }
+  #shell { max-width: 480px; margin: 0 auto; padding: 28px 18px 60px; min-height: 100vh; position: relative; }
+  h1 { font-size: 22px; font-weight: 900; margin: 0 0 4px; letter-spacing: 0.02em; color: var(--ink); }
+  h2 { font-size: 16px; font-weight: 900; margin: 0 0 14px; letter-spacing: 0.04em; color: var(--accent); text-transform: uppercase; }
   p { line-height: 1.6; color: var(--ink-soft); font-size: 14px; }
-  label { display: block; font-size: 12.5px; color: var(--ink-soft); margin: 12px 0 4px; }
-  input, select, textarea {
-    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+  label { display: block; font-size: 12px; color: var(--ink-soft); margin: 14px 0 6px; letter-spacing: 0.03em; }
+  input, textarea {
+    width: 100%; padding: 13px 14px; min-height: 48px; border-radius: 14px; border: 1px solid var(--card-border);
     font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  select, input[type="number"] {
+    width: 100%; min-height: 48px; font-family: inherit; font-size: 15px;
+    appearance: auto; -webkit-appearance: auto;
+    background: initial; border: initial; border-radius: initial; padding: 8px; backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); background: rgba(255,255,255,0.75); }
   button { font-family: inherit; cursor: pointer; border: none; }
-  .btn-primary { width: 100%; padding: 14px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 900; font-size: 15px; margin-top: 14px; }
-  .btn-primary:disabled { opacity: 0.4; }
-  .btn-ghost { background: none; color: var(--ink-soft); padding: 8px; font-size: 13px; text-decoration: underline; width: 100%; margin-top: 4px; }
-  .btn-sm { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); color: var(--ink); font-size: 13px; }
-  .center-screen { padding: 60px 0; }
+  .btn-primary { width: 100%; min-height: 50px; padding: 15px; border-radius: 999px; background: linear-gradient(135deg, #a4c3e5, #8fb0d6); color: var(--accent-ink); font-weight: 700; font-size: 15px; margin-top: 18px; letter-spacing: 0.03em; box-shadow: 0 12px 28px rgba(143,176,214,0.5); transition: transform 0.1s ease; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.4; box-shadow: none; }
+  .btn-ghost { background: none; color: var(--accent); padding: 10px; font-size: 13px; font-weight: 700; width: 100%; margin-top: 6px; min-height: 40px; }
+  .btn-sm { padding: 8px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 700; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+  .center-screen { padding: 56px 0 0; }
   .center-screen textarea { font-family: monospace; font-size: 12px; min-height: 110px; }
+  .brand-wordmark { font-size: 28px; font-weight: 900; letter-spacing: 0.12em; color: var(--ink); margin-bottom: 2px; }
+  .brand-subtitle { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+  .app-brand { font-size: 15px; font-weight: 900; letter-spacing: 0.08em; color: var(--ink); margin-bottom: 18px; }
+  .app-brand span { font-weight: 700; letter-spacing: 0.14em; color: var(--accent); font-size: 11px; }
 
-  .card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
-  .tab-nav { display: flex; gap: 8px; margin-bottom: 18px; }
-  .tab-btn { flex: 1; padding: 10px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--ink-soft); font-size: 14px; font-weight: 700; }
-  .tab-btn.active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .card {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius);
+    padding: 24px 20px; margin-bottom: 20px; box-shadow: var(--shadow);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  }
+  .tab-nav {
+    display: flex; gap: 4px; margin-bottom: 24px; background: rgba(255,255,255,0.35);
+    border: 1px solid var(--card-border); border-radius: 999px; padding: 4px;
+    box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  }
+  .tab-btn { flex: 1; padding: 11px; border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 14px; font-weight: 700; transition: background 0.15s ease, color 0.15s ease; }
+  .tab-btn.active { background: rgba(255,255,255,0.85); color: var(--accent); box-shadow: 0 6px 16px rgba(120,140,175,0.25); }
   .tab-view { display: none; }
   .tab-view.active { display: block; }
 
-  .line-item { display: grid; grid-template-columns: 1fr 60px 24px; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .line-item .subtotal { font-size: 12px; color: var(--ink-soft); grid-column: 1 / 3; margin-top: -4px; }
-  .remove-btn { background: none; color: var(--danger); font-size: 20px; padding: 0; }
-  .total-row { display: flex; justify-content: space-between; margin-top: 10px; font-weight: 900; font-size: 16px; }
-  .status-msg { font-size: 13px; text-align: center; margin-top: 10px; color: var(--ink-soft); }
-  .status-msg.ok { color: #86d9a8; }
-  .status-msg.err { color: var(--danger); }
-  .who-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 12.5px; color: var(--ink-soft); }
-  .who-row button { background: none; color: var(--ink-soft); text-decoration: underline; font-size: 12.5px; }
+  .line-item { display: grid; grid-template-columns: 1fr 58px 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .line-item .subtotal { font-size: 12px; color: var(--ink-soft); grid-column: 1 / 3; margin-top: -4px; margin-bottom: 4px; }
+  .remove-btn { background: var(--accent-soft); color: var(--danger); font-size: 18px; width: 36px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+  .total-row { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); font-weight: 900; font-size: 18px; color: var(--ink); }
+  .status-msg { font-size: 13px; text-align: center; margin-top: 12px; padding: 10px 14px; border-radius: 999px; display: none; }
+  .status-msg:not(:empty) { display: block; background: var(--input-bg); color: var(--ink-soft); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+  .status-msg.ok { background: rgba(111,185,143,0.2); color: var(--ok); font-weight: 700; }
+  .status-msg.err { background: rgba(224,121,111,0.16); color: var(--danger); font-weight: 700; }
+  .who-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 10px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.35); border: 1px solid var(--card-border); box-shadow: var(--shadow);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  }
+  .who-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; box-shadow: 0 4px 10px rgba(143,176,214,0.5); }
+  .who-row .who-email { flex: 1; font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who-row button { background: none; color: var(--accent); font-weight: 700; font-size: 12.5px; flex-shrink: 0; }
 
   #setupNotice, #loginScreen, #app { display: none; }
 </style>
@@ -82,10 +115,12 @@
     <p>貼上 firebaseConfig 讓這個回報工具能連上資料庫。</p>
     <textarea id="configInput" placeholder='{ apiKey: "...", projectId: "...", ... }'></textarea>
     <button class="btn-primary" onclick="saveSetup()">儲存並繼續</button>
+    <button class="btn-ghost" onclick="previewOnly()">先看畫面(不連資料庫)</button>
   </div>
 
   <div id="loginScreen" class="center-screen">
-    <h1>🌸 保養品回報</h1>
+    <div class="brand-wordmark">CHARIS</div>
+    <div class="brand-subtitle">Inventory Management</div>
     <p>登入後可以回報銷售跟修正庫存</p>
     <label for="loginEmail">Email</label>
     <input id="loginEmail" type="email" autocomplete="username">
@@ -96,8 +131,10 @@
   </div>
 
   <div id="app">
+    <div class="app-brand">CHARIS <span>INVENTORY</span></div>
     <div class="who-row">
-      <span id="whoAmI"></span>
+      <div class="who-avatar" id="whoAvatar">👤</div>
+      <span class="who-email" id="whoAmI"></span>
       <button onclick="doLogout()">登出</button>
     </div>
 
@@ -110,7 +147,7 @@
       <div class="card">
         <h2>登記銷售</h2>
         <label for="saleCustomer">客戶姓名</label>
-        <input id="saleCustomer" placeholder="例如:蔡宜穎">
+        <input id="saleCustomer">
         <label>商品明細</label>
         <div id="saleLines"></div>
         <button class="btn-ghost" onclick="addSaleLine()">+ 加一項商品</button>
@@ -140,6 +177,7 @@
 import { initFirebase, loadConfig, saveConfig, parseConfigInput } from "./firebase-init.js";
 import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js";
 import { PRODUCTS } from "./products-seed.js";
+import { COMBOS } from "./combos-seed.js";
 import {
   collection, addDoc, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -149,6 +187,21 @@ import {
 
 let db, auth;
 let saleLineCount = 0;
+let previewMode = false;
+
+function setWhoAmI(text) {
+  document.getElementById("whoAmI").textContent = text;
+  document.getElementById("whoAvatar").textContent = text.trim().charAt(0).toUpperCase() || "👤";
+}
+
+window.previewOnly = function () {
+  previewMode = true;
+  document.getElementById("setupNotice").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  setWhoAmI("預覽模式(未連資料庫)");
+  if (saleLineCount === 0) addSaleLine();
+  renderAdjustOptions();
+};
 
 function boot() {
   const config = loadConfig();
@@ -169,7 +222,7 @@ function boot() {
     if (user) {
       document.getElementById("loginScreen").style.display = "none";
       document.getElementById("app").style.display = "block";
-      document.getElementById("whoAmI").textContent = user.email;
+      setWhoAmI(user.email);
       if (saleLineCount === 0) addSaleLine();
       renderAdjustOptions();
     } else {
@@ -194,7 +247,7 @@ window.saveSetup = function () {
       if (user) {
         document.getElementById("loginScreen").style.display = "none";
         document.getElementById("app").style.display = "block";
-        document.getElementById("whoAmI").textContent = user.email;
+        setWhoAmI(user.email);
         if (saleLineCount === 0) addSaleLine();
         renderAdjustOptions();
       }
@@ -220,6 +273,12 @@ window.doLogin = async function () {
 };
 
 window.doLogout = function () {
+  if (previewMode) {
+    previewMode = false;
+    document.getElementById("app").style.display = "none";
+    document.getElementById("setupNotice").style.display = "block";
+    return;
+  }
   signOut(auth);
 };
 
@@ -233,9 +292,13 @@ window.switchTab = function (tab) {
 
 // ── 登記銷售 ─────────────────────────────
 function productOptionsHtml(selectedCode) {
-  return `<option value="">選擇商品…</option>` + PRODUCTS.map((p) =>
+  const productOpts = PRODUCTS.map((p) =>
     `<option value="${escapeHtml(p.code)}" ${p.code === selectedCode ? "selected" : ""}>${escapeHtml(p.name)}(${escapeHtml(p.code)})</option>`
   ).join("");
+  const comboOpts = COMBOS.map((c) =>
+    `<option value="${escapeHtml(c.code)}" ${c.code === selectedCode ? "selected" : ""}>🎁 ${escapeHtml(c.name)}(套餐)</option>`
+  ).join("");
+  return `<option value="">選擇商品…</option>${productOpts}${comboOpts}`;
 }
 
 window.addSaleLine = function () {
@@ -266,12 +329,17 @@ function getSaleLines() {
     const code = el.querySelector('[data-role="product"]').value;
     const qty = Number(el.querySelector('[data-role="qty"]').value) || 0;
     const product = PRODUCTS.find((p) => p.code === code);
-    if (product && qty > 0) {
-      lines.push({ code: product.code, name: product.name, qty, unitPrice: product.price });
+    const combo = !product ? COMBOS.find((c) => c.code === code) : null;
+    const item = product || combo;
+    if (item && qty > 0) {
+      lines.push({
+        code: item.code, name: item.name, qty, unitPrice: item.price,
+        isCombo: !!combo, components: combo ? combo.components : undefined,
+      });
     }
     const subtotalEl = el.querySelector('[data-role="subtotal"]');
-    if (product && qty > 0) {
-      subtotalEl.textContent = `${qty} × ${formatCurrency(product.price)} = ${formatCurrency(qty * product.price)}`;
+    if (item && qty > 0) {
+      subtotalEl.textContent = `${qty} × ${formatCurrency(item.price)} = ${formatCurrency(qty * item.price)}`;
     } else {
       subtotalEl.textContent = "";
     }
@@ -290,6 +358,7 @@ window.submitSale = async function () {
   const lines = getSaleLines();
   const statusEl = document.getElementById("saleStatus");
   const btn = document.getElementById("saleSubmitBtn");
+  if (previewMode) { statusEl.textContent = "預覽模式,不會真的送出"; statusEl.className = "status-msg"; return; }
   if (!customer) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
   if (lines.length === 0) { statusEl.textContent = "請至少選一項商品"; statusEl.className = "status-msg err"; return; }
   btn.disabled = true;
@@ -329,6 +398,7 @@ window.submitAdjust = async function () {
   const statusEl = document.getElementById("adjustStatus");
   const btn = document.getElementById("adjustSubmitBtn");
   const product = PRODUCTS.find((p) => p.code === code);
+  if (previewMode) { statusEl.textContent = "預覽模式,不會真的送出"; statusEl.className = "status-msg"; return; }
   if (!product) { statusEl.textContent = "請選擇商品"; statusEl.className = "status-msg err"; return; }
   if (!Number.isFinite(targetQty) || targetQty < 0) { statusEl.textContent = "請填正確的數量"; statusEl.className = "status-msg err"; return; }
   btn.disabled = true;
