@@ -136,7 +136,16 @@
   .brand-subtitle { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
   .app-brand { font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: var(--ink-soft); margin-bottom: 10px; }
   .app-brand span { color: var(--accent); }
-  .theme-toggle-btn { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
+  .theme-switch {
+    width: 44px; height: 24px; border-radius: 999px; background: var(--pill-bg); border: 1px solid var(--card-border);
+    display: flex; align-items: center; justify-content: flex-start; padding: 2px; flex-shrink: 0;
+    transition: background 0.2s ease, justify-content 0.2s ease;
+  }
+  [data-theme="dark"] .theme-switch { justify-content: flex-end; }
+  .theme-switch-knob {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
   .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-soft); flex-shrink: 0; transition: background 0.2s ease; box-shadow: 0 0 0 3px rgba(0,0,0,0); }
   .status-dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(111,185,143,0.7); }
   .status-dot.stale { background: var(--danger); box-shadow: 0 0 8px rgba(224,121,111,0.6); }
@@ -178,6 +187,8 @@
   .perf-stat .label { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 4px; }
   .perf-stat .value { font-size: 16px; font-weight: 900; color: var(--ink); }
   .perf-chart-wrap { width: 100%; overflow: hidden; }
+  .perf-chart-wrap.scrollable { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .perf-chart-wrap.scrollable svg { display: block; }
   .perf-empty { text-align: center; color: var(--ink-soft); font-size: 14px; padding: 40px 10px; }
 
   .line-item { display: grid; grid-template-columns: 1fr 58px 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
@@ -272,7 +283,9 @@
         <div class="greeting-name">Ariel</div>
       </div>
       <div class="greeting-right">
-        <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淺色主題"></button>
+        <button class="theme-switch" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淺色主題">
+          <span class="theme-switch-knob" id="themeSwitchKnob"></span>
+        </button>
         <div class="status-dot" id="statusDot" title="連線狀態"></div>
       </div>
     </div>
@@ -316,7 +329,7 @@
         <div class="perf-toggle">
           <button class="active" data-range="week" onclick="setPerfRange('week')">本週</button>
           <button data-range="month" onclick="setPerfRange('month')">本月</button>
-          <button data-range="all" onclick="setPerfRange('all')">全部</button>
+          <button data-range="year" onclick="setPerfRange('year')">全年</button>
         </div>
         <div id="perfContent"></div>
       </div>
@@ -348,12 +361,6 @@
 
   <div class="bottom-nav">
     <div class="bottom-nav-inner">
-      <button class="nav-icon-btn active" id="navBtnSale" onclick="switchTab('sale')" title="登記銷售">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
-          <circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/>
-          <path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 8H6"/>
-        </svg>
-      </button>
       <button class="nav-icon-btn" id="navBtnAdjust" onclick="switchTab('adjust')" title="庫存修正">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
           <path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>
@@ -362,6 +369,11 @@
       <button class="nav-icon-btn" id="navBtnPerformance" onclick="switchTab('performance')" title="績效">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
           <path d="M4 20V11"/><path d="M12 20V4"/><path d="M20 20v-6"/>
+        </svg>
+      </button>
+      <button class="nav-icon-btn active" id="navBtnSale" onclick="switchTab('sale')" title="登記銷售">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+          <path d="M12 4v16M4 12h16"/>
         </svg>
       </button>
       <button class="nav-icon-btn" id="navBtnDiamond" onclick="switchTab('diamond')" title="種鑽紀錄">
@@ -420,8 +432,8 @@ function currentTheme() {
 }
 
 function renderThemeToggleIcon() {
-  const btn = document.getElementById("themeToggleBtn");
-  if (btn) btn.innerHTML = currentTheme() === "dark" ? SUN_ICON : MOON_ICON;
+  const knob = document.getElementById("themeSwitchKnob");
+  if (knob) knob.innerHTML = currentTheme() === "dark" ? SUN_ICON : MOON_ICON;
   const meta = document.getElementById("metaThemeColor");
   if (meta) meta.setAttribute("content", currentTheme() === "dark" ? "#0c0c0d" : "#f4f4f5");
 }
@@ -632,7 +644,6 @@ window.setPerfRange = function (range) {
 };
 
 function filterByRange(rows, range) {
-  if (range === "all") return rows;
   const now = new Date();
   const cutoff = new Date(now);
   if (range === "week") cutoff.setDate(now.getDate() - 7);
@@ -667,6 +678,23 @@ function buildDateBars(rows) {
   return rows.map((r) => ({ label: r.date.slice(5).replace("-", "/"), total: r.total, rv: r.rv || 0, isToday: false }));
 }
 
+const MONTH_LABELS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+
+// 全年固定顯示1~12月共12欄,每欄加總當月所有天,沒有資料的月份就是 0
+function buildYearBars(dailyTotals) {
+  const now = new Date();
+  const totalsByMonth = new Array(12).fill(0);
+  const rvByMonth = new Array(12).fill(0);
+  dailyTotals.forEach((r) => {
+    const d = new Date(r.date);
+    if (d.getFullYear() === now.getFullYear()) {
+      totalsByMonth[d.getMonth()] += r.total;
+      rvByMonth[d.getMonth()] += (r.rv || 0);
+    }
+  });
+  return totalsByMonth.map((total, i) => ({ label: MONTH_LABELS[i], total, rv: rvByMonth[i], isToday: i === now.getMonth() }));
+}
+
 window.__setTestData = function (rows) {
   dailyTotals = rows;
   renderPerformance();
@@ -677,8 +705,11 @@ window.renderPerformance = function renderPerformance() {
   if (!el) return;
 
   let bars;
+  let scrollable = false;
   if (perfRange === "week") {
     bars = buildWeekBars(dailyTotals);
+  } else if (perfRange === "year") {
+    bars = buildYearBars(dailyTotals);
   } else {
     const rows = filterByRange(dailyTotals, perfRange).slice().sort((a, b) => a.date < b.date ? -1 : 1);
     if (rows.length === 0) {
@@ -686,6 +717,7 @@ window.renderPerformance = function renderPerformance() {
       return;
     }
     bars = buildDateBars(rows);
+    scrollable = true; // 本月天數較多,擠不下就用左右滾動,不硬塞進固定寬度
   }
 
   const activeTotals = bars.filter((b) => b.total > 0).map((b) => b.total);
@@ -695,10 +727,17 @@ window.renderPerformance = function renderPerformance() {
   const max = activeTotals.length ? Math.max(...activeTotals) : 0;
   const min = activeTotals.length ? Math.min(...activeTotals) : 0;
 
-  const w = 320, h = 130, padBottom = 22, padTop = 6;
+  const h = 130, padBottom = 22, padTop = 6;
   const chartH = h - padBottom - padTop;
   const barGap = 8;
-  const barW = (w - barGap * (bars.length - 1)) / bars.length;
+  let w, barW;
+  if (scrollable) {
+    barW = 26;
+    w = bars.length * (barW + barGap) - barGap;
+  } else {
+    w = 320;
+    barW = (w - barGap * (bars.length - 1)) / bars.length;
+  }
   const scaleMax = max || 1;
   const rects = bars.map((b, i) => {
     const x = i * (barW + barGap);
@@ -713,11 +752,11 @@ window.renderPerformance = function renderPerformance() {
   }).join("");
 
   el.innerHTML = `
-    <div class="perf-total-label">${perfRange === "week" ? "本週" : perfRange === "month" ? "本月" : "全部"}總計</div>
+    <div class="perf-total-label">${perfRange === "week" ? "本週" : perfRange === "month" ? "本月" : "全年"}總計</div>
     <div class="perf-total-number">${formatCurrency(sum)}</div>
     <div class="perf-rv-label">RV 總計 ${formatCurrency(rvSum)}</div>
-    <div class="perf-chart-wrap">
-      <svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+    <div class="perf-chart-wrap${scrollable ? " scrollable" : ""}">
+      <svg width="${scrollable ? w : "100%"}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
         ${rects}
         ${labels}
       </svg>
