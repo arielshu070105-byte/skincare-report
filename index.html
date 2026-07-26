@@ -114,15 +114,38 @@
     padding: 24px 20px; margin-bottom: 20px; box-shadow: var(--shadow);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
-  .tab-nav {
-    display: flex; gap: 4px; margin-bottom: 24px; background: rgba(255,255,255,0.35);
-    border: 1px solid var(--card-border); border-radius: 999px; padding: 4px;
-    box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-  }
-  .tab-btn { flex: 1; padding: 11px; border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 14px; font-weight: 700; transition: background 0.15s ease, color 0.15s ease; }
-  .tab-btn.active { background: rgba(255,255,255,0.85); color: var(--accent); box-shadow: 0 6px 16px rgba(120,140,175,0.25); }
   .tab-view { display: none; }
   .tab-view.active { display: block; }
+
+  #app { padding-bottom: 92px; }
+  .bottom-nav {
+    position: fixed; left: 0; right: 0; bottom: 18px; z-index: 50;
+    display: flex; justify-content: center;
+  }
+  .bottom-nav-inner {
+    display: flex; gap: 10px; padding: 8px; background: rgba(255,255,255,0.55);
+    border: 1px solid var(--card-border); border-radius: 999px; box-shadow: var(--shadow);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  }
+  .nav-icon-btn {
+    width: 56px; height: 56px; border-radius: 50%; background: transparent; color: var(--ink-soft);
+    font-size: 22px; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  .nav-icon-btn.active { background: var(--accent); color: #fff; box-shadow: 0 8px 18px rgba(143,176,214,0.55); transform: translateY(-2px); }
+
+  /* ── 績效 ─────────────────────────── */
+  .perf-toggle { display: flex; gap: 4px; margin-bottom: 20px; background: rgba(255,255,255,0.35); border: 1px solid var(--card-border); border-radius: 999px; padding: 4px; }
+  .perf-toggle button { flex: 1; padding: 9px; border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 700; }
+  .perf-toggle button.active { background: rgba(255,255,255,0.85); color: var(--accent); }
+  .perf-total-label { font-size: 12px; color: var(--ink-soft); letter-spacing: 0.05em; text-transform: uppercase; }
+  .perf-total-number { font-size: 34px; font-weight: 900; color: var(--ink); margin: 2px 0 18px; }
+  .perf-stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .perf-stat { text-align: center; }
+  .perf-stat .label { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .perf-stat .value { font-size: 16px; font-weight: 900; color: var(--ink); }
+  .perf-chart-wrap { width: 100%; overflow: hidden; }
+  .perf-empty { text-align: center; color: var(--ink-soft); font-size: 14px; padding: 40px 10px; }
 
   .line-item { display: grid; grid-template-columns: 1fr 58px 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
   .line-item .subtotal { font-size: 12px; color: var(--ink-soft); grid-column: 1 / 3; margin-top: -4px; margin-bottom: 4px; }
@@ -137,7 +160,7 @@
     background: rgba(255,255,255,0.35); border: 1px solid var(--card-border); box-shadow: var(--shadow);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
-  .who-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; box-shadow: 0 4px 10px rgba(143,176,214,0.5); }
+  .who-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; box-shadow: 0 4px 10px rgba(143,176,214,0.5); background-size: cover; background-position: center; cursor: pointer; overflow: hidden; }
   .who-row .who-email { flex: 1; font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .who-row button { background: none; color: var(--accent); font-weight: 700; font-size: 12.5px; flex-shrink: 0; }
 
@@ -171,14 +194,10 @@
   <div id="app">
     <div class="app-brand">CHARIS <span>INVENTORY</span></div>
     <div class="who-row">
-      <div class="who-avatar" id="whoAvatar">👤</div>
+      <div class="who-avatar" id="whoAvatar" onclick="document.getElementById('avatarInput').click()">👤</div>
+      <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="onAvatarSelected(event)">
       <span class="who-email" id="whoAmI"></span>
       <button onclick="doLogout()">登出</button>
-    </div>
-
-    <div class="tab-nav">
-      <button class="tab-btn active" id="tabBtnSale" onclick="switchTab('sale')">登記銷售</button>
-      <button class="tab-btn" id="tabBtnAdjust" onclick="switchTab('adjust')">庫存修正</button>
     </div>
 
     <div class="tab-view active" id="tabSale">
@@ -207,6 +226,26 @@
         <p id="adjustStatus" class="status-msg"></p>
       </div>
     </div>
+
+    <div class="tab-view" id="tabPerformance">
+      <div class="card">
+        <h2>績效</h2>
+        <div class="perf-toggle">
+          <button class="active" data-range="week" onclick="setPerfRange('week')">本週</button>
+          <button data-range="month" onclick="setPerfRange('month')">本月</button>
+          <button data-range="all" onclick="setPerfRange('all')">全部</button>
+        </div>
+        <div id="perfContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="nav-icon-btn active" id="navBtnSale" onclick="switchTab('sale')" title="登記銷售">🛒</button>
+      <button class="nav-icon-btn" id="navBtnAdjust" onclick="switchTab('adjust')" title="庫存修正">📦</button>
+      <button class="nav-icon-btn" id="navBtnPerformance" onclick="switchTab('performance')" title="績效">📊</button>
+    </div>
   </div>
 
   <div id="pickerOverlay" class="picker-overlay" onclick="if(event.target===this) closePicker()">
@@ -225,7 +264,7 @@ import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js";
 import { PRODUCTS } from "./products-seed.js";
 import { COMBOS } from "./combos-seed.js";
 import {
-  collection, addDoc, serverTimestamp,
+  collection, addDoc, serverTimestamp, doc, getDoc, setDoc, onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -234,10 +273,34 @@ import {
 let db, auth;
 let saleLineCount = 0;
 let previewMode = false;
+let dailyTotals = [];
+let perfRange = "week";
+let perfUnsubscribe = null;
 
 function setWhoAmI(text) {
   document.getElementById("whoAmI").textContent = text;
   document.getElementById("whoAvatar").textContent = text.trim().charAt(0).toUpperCase() || "👤";
+}
+
+async function onLoggedIn(user) {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  setWhoAmI(user.email);
+  if (saleLineCount === 0) addSaleLine();
+  renderAdjustOptions();
+
+  try {
+    const profileSnap = await getDoc(doc(db, "userProfile", "me"));
+    if (profileSnap.exists() && profileSnap.data().photoDataUrl) {
+      setAvatarImage(profileSnap.data().photoDataUrl);
+    }
+  } catch (e) { console.error(e); }
+
+  if (perfUnsubscribe) perfUnsubscribe();
+  perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
+    dailyTotals = (snap.exists() && snap.data().dailyTotals) || [];
+    renderPerformance();
+  }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); });
 }
 
 window.previewOnly = function () {
@@ -247,6 +310,8 @@ window.previewOnly = function () {
   setWhoAmI("預覽模式(未連資料庫)");
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
+  dailyTotals = [];
+  renderPerformance();
 };
 
 function boot() {
@@ -266,11 +331,7 @@ function boot() {
   }
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      document.getElementById("loginScreen").style.display = "none";
-      document.getElementById("app").style.display = "block";
-      setWhoAmI(user.email);
-      if (saleLineCount === 0) addSaleLine();
-      renderAdjustOptions();
+      onLoggedIn(user);
     } else {
       document.getElementById("app").style.display = "none";
       document.getElementById("loginScreen").style.display = "block";
@@ -290,13 +351,7 @@ window.saveSetup = function () {
     auth = fb.auth;
     document.getElementById("loginScreen").style.display = "block";
     onAuthStateChanged(auth, (user) => {
-      if (user) {
-        document.getElementById("loginScreen").style.display = "none";
-        document.getElementById("app").style.display = "block";
-        setWhoAmI(user.email);
-        if (saleLineCount === 0) addSaleLine();
-        renderAdjustOptions();
-      }
+      if (user) onLoggedIn(user);
     });
   } catch (e) {
     alert(e.message);
@@ -332,8 +387,115 @@ window.doLogout = function () {
 window.switchTab = function (tab) {
   document.getElementById("tabSale").classList.toggle("active", tab === "sale");
   document.getElementById("tabAdjust").classList.toggle("active", tab === "adjust");
-  document.getElementById("tabBtnSale").classList.toggle("active", tab === "sale");
-  document.getElementById("tabBtnAdjust").classList.toggle("active", tab === "adjust");
+  document.getElementById("tabPerformance").classList.toggle("active", tab === "performance");
+  document.getElementById("navBtnSale").classList.toggle("active", tab === "sale");
+  document.getElementById("navBtnAdjust").classList.toggle("active", tab === "adjust");
+  document.getElementById("navBtnPerformance").classList.toggle("active", tab === "performance");
+};
+
+// ── 績效 ─────────────────────────────────
+window.setPerfRange = function (range) {
+  perfRange = range;
+  document.querySelectorAll(".perf-toggle button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.range === range);
+  });
+  renderPerformance();
+};
+
+function filterByRange(rows, range) {
+  if (range === "all") return rows;
+  const now = new Date();
+  const cutoff = new Date(now);
+  if (range === "week") cutoff.setDate(now.getDate() - 7);
+  else if (range === "month") cutoff.setMonth(now.getMonth() - 1);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return rows.filter((r) => r.date >= cutoffStr);
+}
+
+window.__setTestData = function (rows) {
+  dailyTotals = rows;
+  renderPerformance();
+};
+
+window.renderPerformance = function renderPerformance() {
+  const el = document.getElementById("perfContent");
+  if (!el) return;
+  const rows = filterByRange(dailyTotals, perfRange).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  if (rows.length === 0) {
+    el.innerHTML = `<div class="perf-empty">還沒有績效資料。<br>電腦開著同步程式跑過一次之後就會顯示。</div>`;
+    return;
+  }
+  const totals = rows.map((r) => r.total);
+  const sum = totals.reduce((a, b) => a + b, 0);
+  const avg = sum / totals.length;
+  const max = Math.max(...totals);
+  const min = Math.min(...totals);
+
+  const w = 320, h = 120, pad = 10;
+  const range = (max - min) || 1;
+  const points = rows.map((r, i) => {
+    const x = rows.length === 1 ? w / 2 : pad + (i / (rows.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((r.total - min) / range) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const dots = rows.map((r, i) => {
+    const [x, y] = points[i].split(",");
+    return `<circle cx="${x}" cy="${y}" r="3.5" fill="#8fb0d6" />`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="perf-total-label">${perfRange === "week" ? "本週" : perfRange === "month" ? "本月" : "全部"}總計</div>
+    <div class="perf-total-number">${formatCurrency(sum)}</div>
+    <div class="perf-chart-wrap">
+      <svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <polyline points="${points.join(" ")}" fill="none" stroke="#8fb0d6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+        ${dots}
+      </svg>
+    </div>
+    <div class="perf-stats-row">
+      <div class="perf-stat"><div class="label">平均</div><div class="value">${formatCurrency(avg)}</div></div>
+      <div class="perf-stat"><div class="label">最高</div><div class="value">${formatCurrency(max)}</div></div>
+      <div class="perf-stat"><div class="label">最低</div><div class="value">${formatCurrency(min)}</div></div>
+    </div>
+  `;
+};
+
+// ── 大頭貼 ───────────────────────────────
+function setAvatarImage(dataUrl) {
+  const el = document.getElementById("whoAvatar");
+  el.style.backgroundImage = `url(${dataUrl})`;
+  el.textContent = "";
+}
+
+window.onAvatarSelected = function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = async () => {
+    try {
+      const size = 160;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const scale = Math.max(size / img.width, size / img.height);
+      const dw = img.width * scale, dh = img.height * scale;
+      ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+      setAvatarImage(dataUrl);
+      if (!previewMode) {
+        await setDoc(doc(db, "userProfile", "me"), { photoDataUrl: dataUrl, updatedAt: serverTimestamp() });
+      }
+    } catch (e) {
+      console.error(e);
+      alert("大頭貼更新失敗:" + e.message);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); alert("圖片讀取失敗"); };
+  img.src = url;
 };
 
 // ── 商品選擇器(卡片式,取代原生下拉) ──────
