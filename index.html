@@ -6,41 +6,69 @@
 <title>CHARIS Inventory Management</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#eef1f6">
+<meta name="theme-color" content="#f4f4f5" id="metaThemeColor">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem("charis-theme");
+    var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #eef1f6;
-    --card-bg: rgba(255,255,255,0.6);
-    --card-border: rgba(255,255,255,0.7);
-    --ink: #333c4d;
-    --ink-soft: #8b96ab;
-    --line: rgba(180,195,220,0.35);
-    --input-bg: rgba(255,255,255,0.45);
-    --accent: #8fb0d6;
-    --accent-soft: rgba(143,176,214,0.16);
+    --bg: #f4f4f5;
+    --card-bg: rgba(255,255,255,0.7);
+    --card-border: rgba(0,0,0,0.07);
+    --ink: #1c1c1e;
+    --ink-soft: #8e8e93;
+    --line: rgba(0,0,0,0.08);
+    --input-bg: rgba(255,255,255,0.6);
+    --sheet-bg: rgba(255,255,255,0.94);
+    --nav-bg: rgba(255,255,255,0.7);
+    --pill-bg: rgba(0,0,0,0.05);
+    --pill-active-bg: rgba(255,255,255,0.95);
+    --accent: #1c1c1e;
+    --accent-soft: rgba(28,28,30,0.08);
     --accent-ink: #ffffff;
+    --accent-shadow: rgba(0,0,0,0.22);
+    --overlay-scrim: rgba(0,0,0,0.35);
     --radius: 26px;
-    --shadow: 0 20px 50px rgba(110,130,170,0.22), 0 2px 8px rgba(110,130,170,0.1);
+    --shadow: 0 20px 40px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
     --danger: #e0796f;
     --ok: #6fb98f;
-    --blur: blur(22px) saturate(160%);
+    --blur: blur(20px) saturate(140%);
+  }
+  [data-theme="dark"] {
+    --bg: #0c0c0d;
+    --card-bg: rgba(255,255,255,0.06);
+    --card-border: rgba(255,255,255,0.1);
+    --ink: #f2f2f3;
+    --ink-soft: #98989d;
+    --line: rgba(255,255,255,0.1);
+    --input-bg: rgba(255,255,255,0.08);
+    --sheet-bg: rgba(30,30,32,0.97);
+    --nav-bg: rgba(255,255,255,0.08);
+    --pill-bg: rgba(255,255,255,0.06);
+    --pill-active-bg: rgba(255,255,255,0.16);
+    --accent: #f2f2f3;
+    --accent-soft: rgba(255,255,255,0.12);
+    --accent-ink: #0c0c0d;
+    --accent-shadow: rgba(0,0,0,0.6);
+    --overlay-scrim: rgba(0,0,0,0.55);
+    --shadow: 0 20px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; min-height: 100vh;
-    background-color: #e7ecf5;
-    background-image:
-      radial-gradient(38% 32% at 12% 8%, rgba(255,206,224,0.55) 0%, rgba(255,206,224,0) 70%),
-      radial-gradient(45% 38% at 92% 18%, rgba(178,208,255,0.55) 0%, rgba(178,208,255,0) 70%),
-      radial-gradient(50% 42% at 15% 82%, rgba(200,230,255,0.55) 0%, rgba(200,230,255,0) 70%),
-      radial-gradient(40% 36% at 88% 92%, rgba(220,200,255,0.45) 0%, rgba(220,200,255,0) 70%);
-    background-attachment: fixed;
-    background-repeat: no-repeat;
+    background: var(--bg);
     color: var(--ink);
     font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background 0.25s ease, color 0.25s ease;
   }
   #shell { max-width: 480px; margin: 0 auto; padding: 28px 18px 60px; min-height: 100vh; position: relative; }
   h1 { font-size: 22px; font-weight: 900; margin: 0 0 4px; letter-spacing: 0.02em; color: var(--ink); }
@@ -67,15 +95,15 @@
   .picker-trigger .chevron { color: var(--ink-soft); font-size: 12px; flex-shrink: 0; }
 
   .picker-overlay {
-    position: fixed; inset: 0; background: rgba(50,60,80,0.35);
+    position: fixed; inset: 0; background: var(--overlay-scrim);
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     display: none; align-items: flex-end; justify-content: center; z-index: 100;
   }
   .picker-overlay.open { display: flex; }
   .picker-sheet {
-    width: 100%; max-width: 480px; max-height: 78vh; background: rgba(255,255,255,0.88);
+    width: 100%; max-width: 480px; max-height: 78vh; background: var(--sheet-bg);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-    border-radius: 28px 28px 0 0; box-shadow: 0 -20px 50px rgba(110,130,170,0.3);
+    border-radius: 28px 28px 0 0; box-shadow: 0 -20px 50px rgba(0,0,0,0.25);
     display: flex; flex-direction: column; padding: 10px 18px 18px;
     animation: sheet-up 0.22s ease-out;
   }
@@ -83,7 +111,7 @@
   .picker-handle { width: 40px; height: 4px; border-radius: 999px; background: var(--line); margin: 6px auto 14px; }
   .picker-search {
     width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--card-border);
-    font-family: inherit; font-size: 15px; background: rgba(255,255,255,0.7); color: var(--ink);
+    font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink);
     margin-bottom: 10px; flex-shrink: 0;
   }
   .picker-search:focus { outline: none; border-color: var(--accent); }
@@ -95,9 +123,9 @@
   .picker-item:active { background: var(--accent-soft); }
   .picker-item.combo { color: var(--accent); font-weight: 700; }
   .picker-empty { text-align: center; color: var(--ink-soft); font-size: 14px; padding: 20px; }
-  input:focus, textarea:focus { outline: none; border-color: var(--accent); background: rgba(255,255,255,0.75); }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); background: var(--input-bg); }
   button { font-family: inherit; cursor: pointer; border: none; }
-  .btn-primary { width: 100%; min-height: 50px; padding: 15px; border-radius: 999px; background: linear-gradient(135deg, #a4c3e5, #8fb0d6); color: var(--accent-ink); font-weight: 700; font-size: 15px; margin-top: 18px; letter-spacing: 0.03em; box-shadow: 0 12px 28px rgba(143,176,214,0.5); transition: transform 0.1s ease; }
+  .btn-primary { width: 100%; min-height: 50px; padding: 15px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 15px; margin-top: 18px; letter-spacing: 0.03em; box-shadow: 0 12px 28px var(--accent-shadow); transition: transform 0.1s ease; }
   .btn-primary:active { transform: scale(0.98); }
   .btn-primary:disabled { opacity: 0.4; box-shadow: none; }
   .btn-ghost { background: none; color: var(--accent); padding: 10px; font-size: 13px; font-weight: 700; width: 100%; margin-top: 6px; min-height: 40px; }
@@ -106,9 +134,9 @@
   .center-screen textarea { font-family: monospace; font-size: 12px; min-height: 110px; }
   .brand-wordmark { font-size: 28px; font-weight: 900; letter-spacing: 0.12em; color: var(--ink); margin-bottom: 2px; }
   .brand-subtitle { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
-  .app-brand-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-  .app-brand { font-size: 22px; font-weight: 900; letter-spacing: 0.06em; color: var(--ink); }
-  .app-brand span { font-weight: 700; letter-spacing: 0.12em; color: var(--accent); font-size: 13px; }
+  .app-brand { font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: var(--ink-soft); margin-bottom: 10px; }
+  .app-brand span { color: var(--accent); }
+  .theme-toggle-btn { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
   .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-soft); flex-shrink: 0; transition: background 0.2s ease; box-shadow: 0 0 0 3px rgba(0,0,0,0); }
   .status-dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(111,185,143,0.7); }
   .status-dot.stale { background: var(--danger); box-shadow: 0 0 8px rgba(224,121,111,0.6); }
@@ -127,7 +155,7 @@
     display: flex; justify-content: center;
   }
   .bottom-nav-inner {
-    display: flex; gap: 10px; padding: 8px; background: rgba(255,255,255,0.55);
+    display: flex; gap: 10px; padding: 8px; background: var(--nav-bg);
     border: 1px solid var(--card-border); border-radius: 999px; box-shadow: var(--shadow);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
@@ -136,14 +164,15 @@
     font-size: 22px; display: flex; align-items: center; justify-content: center;
     transition: background 0.15s ease, transform 0.1s ease;
   }
-  .nav-icon-btn.active { background: var(--accent); color: #fff; box-shadow: 0 8px 18px rgba(143,176,214,0.55); transform: translateY(-2px); }
+  .nav-icon-btn.active { background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 18px var(--accent-shadow); transform: translateY(-2px); }
 
   /* ── 績效 ─────────────────────────── */
-  .perf-toggle { display: flex; gap: 4px; margin-bottom: 20px; background: rgba(255,255,255,0.35); border: 1px solid var(--card-border); border-radius: 999px; padding: 4px; }
+  .perf-toggle { display: flex; gap: 4px; margin-bottom: 20px; background: var(--pill-bg); border: 1px solid var(--card-border); border-radius: 999px; padding: 4px; }
   .perf-toggle button { flex: 1; padding: 9px; border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 700; }
-  .perf-toggle button.active { background: rgba(255,255,255,0.85); color: var(--accent); }
+  .perf-toggle button.active { background: var(--pill-active-bg); color: var(--accent); }
   .perf-total-label { font-size: 12px; color: var(--ink-soft); letter-spacing: 0.05em; text-transform: uppercase; }
-  .perf-total-number { font-size: 34px; font-weight: 900; color: var(--ink); margin: 2px 0 18px; }
+  .perf-total-number { font-size: 34px; font-weight: 900; color: var(--ink); margin: 2px 0 6px; }
+  .perf-rv-label { font-size: 13px; color: var(--ink-soft); font-weight: 700; margin-bottom: 18px; }
   .perf-stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 18px; }
   .perf-stat { text-align: center; }
   .perf-stat .label { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 4px; }
@@ -159,14 +188,15 @@
   .status-msg:not(:empty) { display: block; background: var(--input-bg); color: var(--ink-soft); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
   .status-msg.ok { background: rgba(111,185,143,0.2); color: var(--ok); font-weight: 700; }
   .status-msg.err { background: rgba(224,121,111,0.16); color: var(--danger); font-weight: 700; }
-  .who-row {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 10px 14px; border-radius: 999px;
-    background: rgba(255,255,255,0.35); border: 1px solid var(--card-border); box-shadow: var(--shadow);
-    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  .greeting-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
   }
-  .who-avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0; box-shadow: 0 4px 10px rgba(143,176,214,0.5); background-size: cover; background-position: center; cursor: pointer; overflow: hidden; }
-  .who-row .who-email { flex: 1; font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .who-row button { background: none; color: var(--accent); font-weight: 700; font-size: 12.5px; flex-shrink: 0; }
+  .who-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 700; flex-shrink: 0; box-shadow: 0 4px 10px var(--accent-shadow); background-size: cover; background-position: center; cursor: pointer; overflow: hidden; }
+  .greeting-text { flex: 1; min-width: 0; }
+  .greeting-hello { font-size: 12.5px; color: var(--ink-soft); line-height: 1.3; }
+  .greeting-name { font-size: 18px; font-weight: 900; color: var(--ink); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .greeting-right { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0; }
+  .greeting-right button { background: none; color: var(--accent); font-weight: 700; font-size: 11.5px; padding: 0; min-height: auto; }
 
   /* ── 最近銷售紀錄 ─────────────────── */
   .sale-record { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
@@ -181,7 +211,7 @@
   .sale-record-actions button { width: 32px; height: 32px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 14px; display: flex; align-items: center; justify-content: center; }
   .sale-record-actions button.danger { color: var(--danger); }
   .list-empty { text-align: center; color: var(--ink-soft); font-size: 13.5px; padding: 20px 10px; }
-  .editing-banner { background: rgba(143,176,214,0.16); color: var(--accent); font-size: 13px; font-weight: 700; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .editing-banner { background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 700; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
   .editing-banner button { background: none; color: var(--accent); text-decoration: underline; font-weight: 700; font-size: 12.5px; }
 
   /* ── 種鑽紀錄 ─────────────────────── */
@@ -197,7 +227,13 @@
   .diamond-record-progress { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
   .diamond-record-date { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
   .diamond-record .btn-sm { flex-shrink: 0; }
-  .diamond-record .btn-sm:disabled { opacity: 0.4; }
+
+  /* ── 庫存檢表 ─────────────────────── */
+  .stock-record { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .stock-record:last-child { border-bottom: none; }
+  .stock-record-name { font-size: 14px; color: var(--ink); }
+  .stock-record-code { font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
+  .stock-record-qty { font-size: 16px; font-weight: 900; color: var(--ink); flex-shrink: 0; }
 
   #setupNotice, #loginScreen, #app { display: none; }
 </style>
@@ -227,15 +263,18 @@
   </div>
 
   <div id="app">
-    <div class="app-brand-row">
-      <div class="app-brand">CHARIS <span>INVENTORY</span></div>
-      <div class="status-dot" id="statusDot" title="連線狀態"></div>
-    </div>
-    <div class="who-row">
+    <div class="app-brand">CHARIS <span>INVENTORY</span></div>
+    <div class="greeting-row">
       <div class="who-avatar" id="whoAvatar" onclick="document.getElementById('avatarInput').click()">👤</div>
       <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="onAvatarSelected(event)">
-      <span class="who-email" id="whoAmI"></span>
-      <button onclick="doLogout()">登出</button>
+      <div class="greeting-text">
+        <div class="greeting-hello">Hello</div>
+        <div class="greeting-name">Ariel</div>
+      </div>
+      <div class="greeting-right">
+        <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淺色主題"></button>
+        <div class="status-dot" id="statusDot" title="連線狀態"></div>
+      </div>
     </div>
 
     <div class="tab-view active" id="tabSale">
@@ -298,6 +337,13 @@
         <div id="diamondListContent"></div>
       </div>
     </div>
+
+    <div class="tab-view" id="tabStock">
+      <div class="card">
+        <h2>庫存檢表</h2>
+        <div id="stockListContent"></div>
+      </div>
+    </div>
   </div>
 
   <div class="bottom-nav">
@@ -321,6 +367,11 @@
       <button class="nav-icon-btn" id="navBtnDiamond" onclick="switchTab('diamond')" title="種鑽紀錄">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
           <path d="M4 9L12 3L20 9L12 21L4 9Z"/><path d="M4 9H20"/><path d="M9 9L12 21"/><path d="M15 9L12 21"/>
+        </svg>
+      </button>
+      <button class="nav-icon-btn" id="navBtnStock" onclick="switchTab('stock')" title="庫存檢表">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+          <path d="M7 4.5h10v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-16z"/><path d="M9 3.5h6a1 1 0 0 1 1 1v1.5H8V4.5a1 1 0 0 1 1-1z"/><path d="M9.5 11l1.5 1.5L14 9"/><path d="M9 16h6"/>
         </svg>
       </button>
     </div>
@@ -358,11 +409,31 @@ let lastSyncAt = null; // 本機同步程式最後一次更新績效資料的時
 let salesList = [];
 let editingSaleId = null;
 let diamondCustomers = [];
+let stockList = [];
 
-function setWhoAmI(text) {
-  document.getElementById("whoAmI").textContent = text;
-  document.getElementById("whoAvatar").textContent = text.trim().charAt(0).toUpperCase() || "👤";
+// ── 深色/淺色主題切換 ─────────────────────
+const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>`;
+const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>`;
+
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") || "light";
 }
+
+function renderThemeToggleIcon() {
+  const btn = document.getElementById("themeToggleBtn");
+  if (btn) btn.innerHTML = currentTheme() === "dark" ? SUN_ICON : MOON_ICON;
+  const meta = document.getElementById("metaThemeColor");
+  if (meta) meta.setAttribute("content", currentTheme() === "dark" ? "#0c0c0d" : "#f4f4f5");
+}
+
+window.toggleTheme = function () {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("charis-theme", next); } catch (e) {}
+  renderThemeToggleIcon();
+};
+
+renderThemeToggleIcon();
 
 const SYNC_STALE_MS = 6 * 60 * 1000; // 同步程式每 2 分鐘跑一次,超過 6 分鐘沒更新就算異常
 
@@ -388,7 +459,6 @@ setInterval(updateStatusDot, 30 * 1000);
 async function onLoggedIn(user) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
-  setWhoAmI(user.email);
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
 
@@ -404,10 +474,12 @@ async function onLoggedIn(user) {
     dailyTotals = (snap.exists() && snap.data().dailyTotals) || [];
     salesList = (snap.exists() && snap.data().salesList) || [];
     diamondCustomers = (snap.exists() && snap.data().diamondCustomers) || [];
+    stockList = (snap.exists() && snap.data().stockList) || [];
     lastSyncAt = (snap.exists() && snap.data().updatedAt && snap.data().updatedAt.toDate) ? snap.data().updatedAt.toDate() : new Date();
     renderPerformance();
     renderSalesList();
     renderDiamondList();
+    renderStockList();
     updateStatusDot();
   }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); updateStatusDot(); });
 }
@@ -420,16 +492,24 @@ function fakePerformanceData() {
     if (total === 0) return; // 模擬有些天沒有銷售
     const d = new Date(today);
     d.setDate(today.getDate() - (totals.length - 1 - i));
-    rows.push({ date: d.toISOString().slice(0, 10), total });
+    rows.push({ date: d.toISOString().slice(0, 10), total, rv: Math.round(total * 0.6) });
   });
   return rows;
+}
+
+function fakeStockList() {
+  return [
+    { code: "1號", name: "多肽化妝水(200ml)", stock: 12 },
+    { code: "3號", name: "透明質酸精華(30ml)", stock: 5 },
+    { code: "鑽石面膜", name: "鑽石面膜", stock: 0 },
+    { code: "CPR", name: "CPR", stock: 8 },
+  ];
 }
 
 window.previewOnly = function () {
   previewMode = true;
   document.getElementById("setupNotice").style.display = "none";
   document.getElementById("app").style.display = "block";
-  setWhoAmI("預覽模式(未連資料庫)");
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
   dailyTotals = fakePerformanceData();
@@ -438,6 +518,8 @@ window.previewOnly = function () {
   renderSalesList();
   diamondCustomers = fakeDiamondCustomers();
   renderDiamondList();
+  stockList = fakeStockList();
+  renderStockList();
   updateStatusDot();
 };
 
@@ -452,7 +534,7 @@ function fakeSalesList() {
 function fakeDiamondCustomers() {
   return [
     { customer: "蔡宜穎", diamondCount: 2, hasTrial: true, lastDate: "2026-06-01", isDue: true },
-    { customer: "王愷均", diamondCount: 6, hasTrial: false, lastDate: "2026-07-10", isDue: false },
+    { customer: "王愷均", diamondCount: 4, hasTrial: false, lastDate: "2026-07-10", isDue: false },
     { customer: "斑斑", diamondCount: 0, hasTrial: false, lastDate: null, isDue: false },
   ];
 }
@@ -532,10 +614,12 @@ window.switchTab = function (tab) {
   document.getElementById("tabAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("tabPerformance").classList.toggle("active", tab === "performance");
   document.getElementById("tabDiamond").classList.toggle("active", tab === "diamond");
+  document.getElementById("tabStock").classList.toggle("active", tab === "stock");
   document.getElementById("navBtnSale").classList.toggle("active", tab === "sale");
   document.getElementById("navBtnAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("navBtnPerformance").classList.toggle("active", tab === "performance");
   document.getElementById("navBtnDiamond").classList.toggle("active", tab === "diamond");
+  document.getElementById("navBtnStock").classList.toggle("active", tab === "stock");
 };
 
 // ── 績效 ─────────────────────────────────
@@ -567,19 +651,20 @@ function buildWeekBars(dailyTotals) {
   const monday = new Date(now);
   monday.setDate(now.getDate() + mondayOffset);
   const byDate = {};
-  dailyTotals.forEach((r) => { byDate[r.date] = r.total; });
+  dailyTotals.forEach((r) => { byDate[r.date] = r; });
   const bars = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     const dateStr = d.toISOString().slice(0, 10);
-    bars.push({ label: WEEKDAY_LABELS[i], total: byDate[dateStr] || 0, isToday: dateStr === now.toISOString().slice(0, 10) });
+    const row = byDate[dateStr];
+    bars.push({ label: WEEKDAY_LABELS[i], total: (row && row.total) || 0, rv: (row && row.rv) || 0, isToday: dateStr === now.toISOString().slice(0, 10) });
   }
   return bars;
 }
 
 function buildDateBars(rows) {
-  return rows.map((r) => ({ label: r.date.slice(5).replace("-", "/"), total: r.total, isToday: false }));
+  return rows.map((r) => ({ label: r.date.slice(5).replace("-", "/"), total: r.total, rv: r.rv || 0, isToday: false }));
 }
 
 window.__setTestData = function (rows) {
@@ -605,6 +690,7 @@ window.renderPerformance = function renderPerformance() {
 
   const activeTotals = bars.filter((b) => b.total > 0).map((b) => b.total);
   const sum = bars.reduce((a, b) => a + b.total, 0);
+  const rvSum = bars.reduce((a, b) => a + (b.rv || 0), 0);
   const avg = activeTotals.length ? activeTotals.reduce((a, b) => a + b, 0) / activeTotals.length : 0;
   const max = activeTotals.length ? Math.max(...activeTotals) : 0;
   const min = activeTotals.length ? Math.min(...activeTotals) : 0;
@@ -618,17 +704,18 @@ window.renderPerformance = function renderPerformance() {
     const x = i * (barW + barGap);
     const barH = Math.max(2, (b.total / scaleMax) * chartH);
     const y = padTop + (chartH - barH);
-    const fill = b.isToday ? "#6f93bf" : "#a9c4e3";
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="4" fill="${fill}" />`;
+    const fill = b.isToday ? "var(--accent)" : "var(--ink-soft)";
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="4" fill="${fill}" ${b.isToday ? "" : "opacity=\"0.45\""} />`;
   }).join("");
   const labels = bars.map((b, i) => {
     const x = i * (barW + barGap) + barW / 2;
-    return `<text x="${x.toFixed(1)}" y="${h - 6}" font-size="11" fill="#8b96ab" text-anchor="middle">${escapeHtml(b.label)}</text>`;
+    return `<text x="${x.toFixed(1)}" y="${h - 6}" font-size="11" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(b.label)}</text>`;
   }).join("");
 
   el.innerHTML = `
     <div class="perf-total-label">${perfRange === "week" ? "本週" : perfRange === "month" ? "本月" : "全部"}總計</div>
     <div class="perf-total-number">${formatCurrency(sum)}</div>
+    <div class="perf-rv-label">RV 總計 ${formatCurrency(rvSum)}</div>
     <div class="perf-chart-wrap">
       <svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
         ${rects}
@@ -932,8 +1019,13 @@ window.renderDiamondList = function renderDiamondList() {
     el.innerHTML = `<div class="list-empty">還沒有種鑽紀錄。</div>`;
     return;
   }
-  el.innerHTML = diamondCustomers.map((c, i) => {
-    const full = c.diamondCount >= 6;
+  const visible = diamondCustomers.filter((c) => c.diamondCount < 6);
+  if (visible.length === 0) {
+    el.innerHTML = `<div class="list-empty">還沒有種鑽紀錄。</div>`;
+    return;
+  }
+  el.innerHTML = visible.map((c) => {
+    const i = diamondCustomers.indexOf(c);
     return `
       <div class="diamond-record">
         <div class="diamond-record-main">
@@ -944,7 +1036,7 @@ window.renderDiamondList = function renderDiamondList() {
           <div class="diamond-record-progress">已種 ${c.diamondCount}/6 顆${c.hasTrial ? " · 已體驗" : ""}</div>
           <div class="diamond-record-date">${c.lastDate ? escapeHtml(c.lastDate) : "尚未開始"}</div>
         </div>
-        <button class="btn-sm" ${full ? "disabled" : ""} onclick="plantDiamondAt(${i})">${full ? "已種滿" : "種下一顆"}</button>
+        <button class="btn-sm" onclick="plantDiamondAt(${i})">種下一顆</button>
       </div>
     `;
   }).join("");
@@ -996,6 +1088,25 @@ window.addDiamondCustomer = async function () {
     statusEl.textContent = "送出失敗:" + e.message;
     statusEl.className = "status-msg err";
   }
+};
+
+// ── 庫存檢表(純查看全部商品目前庫存) ──────
+window.renderStockList = function renderStockList() {
+  const el = document.getElementById("stockListContent");
+  if (!el) return;
+  if (!stockList || stockList.length === 0) {
+    el.innerHTML = `<div class="list-empty">還沒有庫存資料。</div>`;
+    return;
+  }
+  el.innerHTML = stockList.map((s) => `
+    <div class="stock-record">
+      <div>
+        <div class="stock-record-name">${escapeHtml(s.name || s.code)}</div>
+        <div class="stock-record-code">${escapeHtml(s.code)}</div>
+      </div>
+      <div class="stock-record-qty">${s.stock}</div>
+    </div>
+  `).join("");
 };
 
 // ── 庫存修正 ─────────────────────────────
