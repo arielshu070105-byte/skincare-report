@@ -41,6 +41,9 @@
     --danger: #e0796f;
     --ok: #6fb98f;
     --blur: blur(20px) saturate(140%);
+    --glow-1: rgba(0,0,0,0.045);
+    --glow-2: rgba(0,0,0,0.03);
+    --glow-3: rgba(0,0,0,0.035);
   }
   [data-theme="dark"] {
     --bg: #0c0c0d;
@@ -60,15 +63,24 @@
     --accent-shadow: rgba(0,0,0,0.6);
     --overlay-scrim: rgba(0,0,0,0.55);
     --shadow: 0 20px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+    --glow-1: rgba(255,255,255,0.06);
+    --glow-2: rgba(255,255,255,0.04);
+    --glow-3: rgba(255,255,255,0.05);
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; min-height: 100vh;
-    background: var(--bg);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(45% 38% at 15% 0%, var(--glow-1) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(50% 42% at 100% 25%, var(--glow-2) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(55% 45% at 10% 100%, var(--glow-3) 0%, rgba(0,0,0,0) 70%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--ink);
     font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
     -webkit-font-smoothing: antialiased;
-    transition: background 0.25s ease, color 0.25s ease;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
   #shell { max-width: 480px; margin: 0 auto; padding: 28px 18px 60px; min-height: 100vh; position: relative; }
   h1 { font-size: 22px; font-weight: 900; margin: 0 0 4px; letter-spacing: 0.02em; color: var(--ink); }
@@ -80,7 +92,7 @@
     font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
-  input[type="number"] {
+  input[type="number"], input.qty-input {
     width: 100%; min-height: 48px; font-family: inherit; font-size: 15px;
     appearance: auto; -webkit-appearance: auto;
     background: initial; border: initial; border-radius: initial; padding: 8px; backdrop-filter: none; -webkit-backdrop-filter: none;
@@ -135,9 +147,8 @@
   .brand-wordmark { font-size: 28px; font-weight: 900; letter-spacing: 0.12em; color: var(--ink); margin-bottom: 2px; }
   .brand-subtitle { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
   .app-brand {
-    display: inline-block; font-size: 17px; font-weight: 900; letter-spacing: 0.08em; color: var(--ink);
-    background: var(--pill-bg); border: 1px solid var(--card-border); border-radius: 999px;
-    padding: 7px 16px; margin-bottom: 14px;
+    font-size: 17px; font-weight: 900; letter-spacing: 0.08em; color: var(--ink);
+    margin-bottom: 14px;
   }
   .app-brand span { color: var(--accent); font-weight: 700; }
   .theme-switch {
@@ -327,7 +338,7 @@
         <label>商品</label>
         <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
         <label for="adjustQty">實際庫存數量</label>
-        <input id="adjustQty" type="number" inputmode="numeric" min="0">
+        <input id="adjustQty" type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input">
         <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjust()">送出庫存修正</button>
         <p id="adjustStatus" class="status-msg"></p>
       </div>
@@ -904,7 +915,7 @@ window.addSaleLine = function () {
   const pickerId = id + "-picker";
   div.innerHTML = `
     <button type="button" class="picker-trigger placeholder" data-role="product" data-value="" data-picker-id="${pickerId}" onclick="openPicker('${pickerId}')">選擇商品…<span class="chevron">▾</span></button>
-    <input type="number" min="1" value="1" inputmode="numeric" data-role="qty" onchange="updateSaleTotal()">
+    <input type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input" value="1" data-role="qty" onchange="updateSaleTotal()">
     <button class="remove-btn" onclick="removeSaleLine('${id}')">×</button>
     <div class="subtotal" data-role="subtotal"></div>
   `;
