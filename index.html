@@ -123,12 +123,6 @@
   }
   @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .picker-handle { width: 40px; height: 4px; border-radius: 999px; background: var(--line); margin: 6px auto 14px; }
-  .picker-search {
-    width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--card-border);
-    font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink);
-    margin-bottom: 10px; flex-shrink: 0;
-  }
-  .picker-search:focus { outline: none; border-color: var(--accent); }
   .picker-list { overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .picker-item {
     width: 100%; text-align: left; padding: 13px 12px; border-radius: 12px; font-size: 15px;
@@ -366,7 +360,9 @@
     <div class="tab-view" id="tabDiamond">
       <div class="card">
         <h2>種鑽紀錄</h2>
-        <label for="diamondNewCustomer">新增要種鑽的客人</label>
+        <label for="diamondDate">日期</label>
+        <input id="diamondDate" type="date" class="qty-input">
+        <label for="diamondNewCustomer">新增要種鑽的客人 / 點名單裡的客人種下一顆,都會用上面選的日期</label>
         <div class="diamond-add-row">
           <input id="diamondNewCustomer" placeholder="輸入客戶姓名">
           <button class="btn-sm" onclick="addDiamondCustomer()">新增</button>
@@ -435,7 +431,6 @@
   <div id="pickerOverlay" class="picker-overlay" onclick="if(event.target===this) closePicker()">
     <div class="picker-sheet">
       <div class="picker-handle"></div>
-      <input id="pickerSearch" class="picker-search" placeholder="搜尋商品…" oninput="renderPickerList(this.value)">
       <div id="pickerList" class="picker-list"></div>
     </div>
   </div>
@@ -517,6 +512,8 @@ async function onLoggedIn(user) {
   document.getElementById("settingsWhoAmI").textContent = user.email;
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
+  const diamondDateInput = document.getElementById("diamondDate");
+  if (diamondDateInput && !diamondDateInput.value) diamondDateInput.value = todayISO();
 
   try {
     const profileSnap = await getDoc(doc(db, "userProfile", "me"));
@@ -547,6 +544,8 @@ window.previewOnly = function () {
   document.getElementById("settingsWhoAmI").textContent = "預覽模式(未連資料庫)";
   if (saleLineCount === 0) addSaleLine();
   renderAdjustOptions();
+  const diamondDateInput = document.getElementById("diamondDate");
+  if (diamondDateInput && !diamondDateInput.value) diamondDateInput.value = todayISO();
   dailyTotals = [];
   renderPerformance();
   salesList = [];
@@ -855,10 +854,8 @@ let pickerOptionsList = ALL_OPTIONS;
 window.openPicker = function (targetId, optionsList) {
   pickerTargetId = targetId;
   pickerOptionsList = optionsList || ALL_OPTIONS;
-  document.getElementById("pickerSearch").value = "";
-  renderPickerList("");
+  renderPickerList();
   document.getElementById("pickerOverlay").classList.add("open");
-  document.getElementById("pickerSearch").focus();
 };
 
 window.closePicker = function () {
@@ -870,15 +867,13 @@ window.openAdjustPicker = function () {
   openPicker("adjustProduct", PRODUCT_OPTIONS);
 };
 
-window.renderPickerList = function (filter) {
-  const q = filter.trim().toLowerCase();
-  const matches = pickerOptionsList.filter((o) => !q || o.label.toLowerCase().includes(q) || o.code.toLowerCase().includes(q));
+window.renderPickerList = function () {
   const listEl = document.getElementById("pickerList");
-  if (matches.length === 0) {
-    listEl.innerHTML = `<div class="picker-empty">找不到符合的商品</div>`;
+  if (pickerOptionsList.length === 0) {
+    listEl.innerHTML = `<div class="picker-empty">找不到商品</div>`;
     return;
   }
-  listEl.innerHTML = matches.map((o) =>
+  listEl.innerHTML = pickerOptionsList.map((o) =>
     `<button type="button" class="picker-item ${o.isCombo ? "combo" : ""}" onclick="selectPickerOption('${escapeHtml(o.code).replace(/'/g, "\\'")}')">${escapeHtml(o.label)}</button>`
   ).join("");
 };
@@ -1120,20 +1115,22 @@ window.renderDiamondList = function renderDiamondList() {
 async function doPlantDiamond(customerName) {
   const name = (customerName || "").trim();
   if (!name) return;
+  const dateInput = document.getElementById("diamondDate");
+  const date = (dateInput && dateInput.value) || todayISO();
   if (previewMode) {
     const existing = diamondCustomers.find((c) => c.customer === name);
     if (existing) {
       if (existing.diamondCount < 6) existing.diamondCount++;
-      existing.lastDate = todayISO();
+      existing.lastDate = date;
       existing.isDue = false;
     } else {
-      diamondCustomers.push({ customer: name, diamondCount: 1, hasTrial: false, lastDate: todayISO(), isDue: false });
+      diamondCustomers.push({ customer: name, diamondCount: 1, hasTrial: false, lastDate: date, isDue: false });
     }
     renderDiamondList();
     return;
   }
   await addDoc(collection(db, "pendingActions"), {
-    type: "plantDiamond", customer: name, date: todayISO(), createdAt: serverTimestamp(), synced: false,
+    type: "plantDiamond", customer: name, date, createdAt: serverTimestamp(), synced: false,
   });
 }
 
