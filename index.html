@@ -931,7 +931,7 @@ function getSaleLines() {
     if (item && qty > 0) {
       lines.push({
         code: item.code, name: item.name, qty, unitPrice: item.price,
-        isCombo: !!combo, components: combo ? combo.components : undefined,
+        isCombo: !!combo, components: combo ? combo.components : null,
       });
     }
     const subtotalEl = el.querySelector('[data-role="subtotal"]');
