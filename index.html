@@ -474,26 +474,40 @@
 <script type="module">
 import { initFirebase, loadConfig, saveConfig, parseConfigInput } from "./firebase-init.js?v=2";
 import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js?v=2";
-import { PRODUCTS } from "./products-seed.js?v=2";
-import { COMBOS } from "./combos-seed.js?v=2";
+import { PRODUCTS } from "./products-seed.js?v=3";
+import { COMBOS } from "./combos-seed.js?v=3";
 
-// 10件組已經改成先實體組裝成有自己庫存的成品(見「庫存修正」的「組裝10件組」模式),
+// 三個套組都已經改成先實體組裝成有自己庫存的成品(見「庫存修正」的「組裝」模式),
 // 不再是賣的時候才展開扣庫存的套餐,所以配方放這裡而不是 combos-seed.js
-const ASSEMBLY_KIT_CODE = "10件組";
-const ASSEMBLY_KIT_COMPONENTS = [
-  { code: "119面膜", qty: 1 },
-  { code: "粉", qty: 1 },
-  { code: "1號", qty: 1 },
-  { code: "3號", qty: 1 },
-  { code: "5號", qty: 1 },
-  { code: "6號-2", qty: 1 },
-  { code: "7號", qty: 1 },
-  { code: "8號", qty: 1 },
-  { code: "鑽石面膜", qty: 1 },
-  { code: "洗臉巾", qty: 1 },
-  { code: "1號面膜", qty: 1 },
-  { code: "2號面膜", qty: 1 },
-];
+const ASSEMBLY_KITS = {
+  "10件組": [
+    { code: "119面膜", qty: 1 },
+    { code: "粉", qty: 1 },
+    { code: "1號", qty: 1 },
+    { code: "3號", qty: 1 },
+    { code: "5號", qty: 1 },
+    { code: "6號-2", qty: 1 },
+    { code: "7號", qty: 1 },
+    { code: "8號", qty: 1 },
+    { code: "鑽石面膜", qty: 1 },
+    { code: "洗臉巾", qty: 1 },
+    { code: "1號面膜", qty: 1 },
+    { code: "2號面膜", qty: 1 },
+  ],
+  "1+2面膜": [
+    { code: "1號面膜", qty: 1 },
+    { code: "2號面膜", qty: 1 },
+  ],
+  "4+5+6": [
+    { code: "4號", qty: 1 },
+    { code: "5號", qty: 1 },
+    { code: "6號-1", qty: 1 },
+  ],
+};
+const KIT_OPTIONS = Object.keys(ASSEMBLY_KITS).map((code) => {
+  const p = PRODUCTS.find((pp) => pp.code === code);
+  return { code, label: p ? p.name : code, isCombo: false };
+});
 import {
   collection, addDoc, serverTimestamp, doc, getDoc, setDoc, onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -925,7 +939,7 @@ window.closePicker = function () {
 };
 
 window.openAdjustPicker = function () {
-  openPicker("adjustProduct", PRODUCT_OPTIONS);
+  openPicker("adjustProduct", adjustMode === "assemble" ? KIT_OPTIONS : PRODUCT_OPTIONS);
 };
 
 window.renderPickerList = function () {
@@ -1330,13 +1344,13 @@ window.setAdjustMode = function (mode) {
   document.querySelectorAll("#tabAdjust .perf-toggle button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
-  document.getElementById("adjustProductSection").style.display = mode === "assemble" ? "none" : "block";
+  renderAdjustOptions(); // 換模式時重置商品選擇,避免選到另一個模式下不適用的選項
   if (mode === "restock") {
     document.getElementById("adjustModeHint").textContent = "進貨到了,填這次實際到貨的數量就好,會直接加到目前庫存上,不用自己算現在庫存是多少。";
     document.getElementById("adjustQtyLabel").textContent = "這次進貨數量";
     document.getElementById("adjustSubmitBtn").textContent = "送出進貨";
   } else if (mode === "assemble") {
-    document.getElementById("adjustModeHint").textContent = "組裝好幾組10件組,填組數就好,系統會自動扣掉裡面12個單品各自的庫存,並把10件組的庫存加上去。";
+    document.getElementById("adjustModeHint").textContent = "選要組裝的套組、填這次組裝幾組,系統會自動扣掉裡面每個單品的庫存,並把這個套組自己的庫存加上去。";
     document.getElementById("adjustQtyLabel").textContent = "這次組裝幾組";
     document.getElementById("adjustSubmitBtn").textContent = "送出組裝";
   } else {
@@ -1355,7 +1369,11 @@ window.submitAdjust = async function () {
 
   let payload;
   if (adjustMode === "assemble") {
-    payload = { type: "assembleKit", code: ASSEMBLY_KIT_CODE, name: ASSEMBLY_KIT_CODE, qty: qtyValue, components: ASSEMBLY_KIT_COMPONENTS };
+    const code = document.getElementById("adjustProduct").dataset.value;
+    const components = ASSEMBLY_KITS[code];
+    if (!components) { statusEl.textContent = "請選擇要組裝的套組"; statusEl.className = "status-msg err"; return; }
+    const kitProduct = PRODUCTS.find((p) => p.code === code);
+    payload = { type: "assembleKit", code, name: kitProduct ? kitProduct.name : code, qty: qtyValue, components };
   } else {
     const code = document.getElementById("adjustProduct").dataset.value;
     const product = PRODUCTS.find((p) => p.code === code);
