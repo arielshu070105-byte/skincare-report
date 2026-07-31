@@ -333,10 +333,14 @@
     <div class="tab-view" id="tabAdjust">
       <div class="card">
         <h2>庫存修正</h2>
-        <p>盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。</p>
+        <div class="perf-toggle">
+          <button class="active" data-mode="adjust" onclick="setAdjustMode('adjust')">盤點修正為</button>
+          <button data-mode="restock" onclick="setAdjustMode('restock')">進貨+N</button>
+        </div>
+        <p id="adjustModeHint">盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。</p>
         <label>商品</label>
         <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
-        <label for="adjustQty">實際庫存數量</label>
+        <label for="adjustQty" id="adjustQtyLabel">實際庫存數量</label>
         <input id="adjustQty" type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input">
         <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjust()">送出庫存修正</button>
         <p id="adjustStatus" class="status-msg"></p>
@@ -476,6 +480,7 @@ let editingSaleId = null;
 let diamondCustomers = [];
 let stockList = [];
 let customerTotals = [];
+let adjustMode = "adjust";
 
 // ── 深色/淺色主題切換 ─────────────────────
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>`;
@@ -1242,24 +1247,40 @@ window.renderAdjustOptions = function renderAdjustOptions() {
   btn.insertAdjacentHTML("beforeend", `<span class="chevron">▾</span>`);
 };
 
+window.setAdjustMode = function (mode) {
+  adjustMode = mode;
+  document.querySelectorAll("#tabAdjust .perf-toggle button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+  if (mode === "restock") {
+    document.getElementById("adjustModeHint").textContent = "進貨到了,填這次實際到貨的數量就好,會直接加到目前庫存上,不用自己算現在庫存是多少。";
+    document.getElementById("adjustQtyLabel").textContent = "這次進貨數量";
+    document.getElementById("adjustSubmitBtn").textContent = "送出進貨";
+  } else {
+    document.getElementById("adjustModeHint").textContent = "盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。";
+    document.getElementById("adjustQtyLabel").textContent = "實際庫存數量";
+    document.getElementById("adjustSubmitBtn").textContent = "送出庫存修正";
+  }
+};
+
 window.submitAdjust = async function () {
   const code = document.getElementById("adjustProduct").dataset.value;
-  const targetQty = Number(document.getElementById("adjustQty").value);
+  const qtyValue = Number(document.getElementById("adjustQty").value);
   const statusEl = document.getElementById("adjustStatus");
   const btn = document.getElementById("adjustSubmitBtn");
   const product = PRODUCTS.find((p) => p.code === code);
   if (previewMode) { statusEl.textContent = "預覽模式,不會真的送出"; statusEl.className = "status-msg"; return; }
   if (!product) { statusEl.textContent = "請選擇商品"; statusEl.className = "status-msg err"; return; }
-  if (!Number.isFinite(targetQty) || targetQty < 0) { statusEl.textContent = "請填正確的數量"; statusEl.className = "status-msg err"; return; }
+  if (!Number.isFinite(qtyValue) || qtyValue < 0) { statusEl.textContent = "請填正確的數量"; statusEl.className = "status-msg err"; return; }
   btn.disabled = true;
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
   try {
+    const payload = adjustMode === "restock"
+      ? { type: "restock", code: product.code, name: product.name, qty: qtyValue }
+      : { type: "stockAdjust", code: product.code, name: product.name, targetQty: qtyValue };
     await addDoc(collection(db, "pendingActions"), {
-      type: "stockAdjust",
-      code: product.code,
-      name: product.name,
-      targetQty,
+      ...payload,
       date: todayISO(),
       createdAt: serverTimestamp(),
       synced: false,
