@@ -1133,7 +1133,7 @@ window.renderDiamondList = function renderDiamondList() {
           <div class="diamond-record-progress">已種 ${c.diamondCount}/6 顆${c.hasTrial ? " · 已體驗" : ""}</div>
           <div class="diamond-record-date">${c.lastDate ? escapeHtml(c.lastDate) : "尚未開始"}</div>
         </div>
-        <button class="btn-sm" onclick="plantDiamondAt(${i})">種下一顆</button>
+        <button class="btn-sm" onclick="plantDiamondAt(${i}, this)">種下一顆</button>
       </div>
     `;
   }).join("");
@@ -1161,21 +1161,30 @@ async function doPlantDiamond(customerName) {
   });
 }
 
-window.plantDiamondAt = async function (i) {
+window.plantDiamondAt = async function (i, btn) {
   const c = diamondCustomers[i];
   if (!c) return;
+  if (btn) { if (btn.disabled) return; btn.disabled = true; } // 防止手指點快了同一個動作連續送出好幾次
   try {
     await doPlantDiamond(c.customer);
   } catch (e) {
     alert("送出失敗:" + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 };
 
 window.addDiamondCustomer = async function () {
   const input = document.getElementById("diamondNewCustomer");
+  const btn = document.querySelector('#tabDiamond .diamond-add-row button');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const name = input.value.trim();
   const statusEl = document.getElementById("diamondStatus");
-  if (!name) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
+  if (!name) {
+    statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err";
+    if (btn) btn.disabled = false;
+    return;
+  }
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
   try {
@@ -1186,6 +1195,8 @@ window.addDiamondCustomer = async function () {
   } catch (e) {
     statusEl.textContent = "送出失敗:" + e.message;
     statusEl.className = "status-msg err";
+  } finally {
+    if (btn) btn.disabled = false;
   }
 };
 
