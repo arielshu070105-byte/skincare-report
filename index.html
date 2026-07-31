@@ -1171,7 +1171,7 @@ window.renderDiamondList = function renderDiamondList() {
     el.innerHTML = `<div class="list-empty">還沒有種鑽紀錄。</div>`;
     return;
   }
-  const visible = diamondCustomers.filter((c) => c.diamondCount < 6);
+  const visible = diamondCustomers;
   if (visible.length === 0) {
     el.innerHTML = `<div class="list-empty">還沒有種鑽紀錄。</div>`;
     return;
@@ -1194,7 +1194,7 @@ window.renderDiamondList = function renderDiamondList() {
             <span class="diamond-record-customer" onclick="toggleDiamondDetail('${escapeHtml(c.customer).replace(/'/g, "\\'")}')">${escapeHtml(c.customer)}</span>
             ${c.isDue ? `<span class="diamond-due-badge">🔔</span>` : ""}
           </div>
-          <div class="diamond-record-progress">已種 ${c.diamondCount}/6 顆${c.hasTrial ? " · 已體驗" : ""}</div>
+          <div class="diamond-record-progress">已種 ${c.diamondCount} 顆${c.hasTrial ? " · 已體驗" : ""}</div>
           <div class="diamond-record-date">${c.lastDate ? escapeHtml(c.lastDate) : "尚未開始"}</div>
           ${detailHtml}
         </div>
@@ -1219,7 +1219,7 @@ async function doPlantDiamond(customerName) {
         diamondCustomers.push({ customer: name, diamondCount: 0, hasTrial: true, lastDate: date, isDue: false });
       }
     } else if (existing) {
-      if (existing.diamondCount < 6) existing.diamondCount++;
+      existing.diamondCount++;
       existing.lastDate = date;
       existing.isDue = false;
     } else {
