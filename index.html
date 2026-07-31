@@ -367,9 +367,13 @@
     <div class="tab-view" id="tabDiamond">
       <div class="card">
         <h2>種鑽紀錄</h2>
+        <div class="perf-toggle">
+          <button class="active" data-mode="plant" onclick="setDiamondActionMode('plant')">種鑽</button>
+          <button data-mode="trial" onclick="setDiamondActionMode('trial')">體驗</button>
+        </div>
         <label for="diamondDate">日期</label>
         <input id="diamondDate" type="date" class="qty-input">
-        <label for="diamondNewCustomer">新增要種鑽的客人 / 點名單裡的客人種下一顆,都會用上面選的日期</label>
+        <label for="diamondNewCustomer" id="diamondNewCustomerLabel">新增要種鑽的客人 / 點名單裡的客人種下一顆,都會用上面選的日期</label>
         <div class="diamond-add-row">
           <input id="diamondNewCustomer" placeholder="輸入客戶姓名">
           <button class="btn-sm" onclick="addDiamondCustomer()">新增</button>
@@ -481,6 +485,7 @@ let diamondCustomers = [];
 let stockList = [];
 let customerTotals = [];
 let adjustMode = "adjust";
+let diamondActionMode = "plant";
 
 // ── 深色/淺色主題切換 ─────────────────────
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>`;
@@ -670,7 +675,7 @@ window.switchTab = function (tab) {
 // ── 績效 ─────────────────────────────────
 window.setPerfRange = function (range) {
   perfRange = range;
-  document.querySelectorAll(".perf-toggle button").forEach((btn) => {
+  document.querySelectorAll("#tabPerformance .perf-toggle button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.range === range);
   });
   renderPerformance();
@@ -1108,7 +1113,18 @@ window.submitSale = async function () {
   }
 };
 
-// ── 種鑽紀錄(查看進度/新增客人/種下一顆) ──
+// ── 種鑽紀錄(查看進度/新增客人/種下一顆/記錄體驗) ──
+window.setDiamondActionMode = function (mode) {
+  diamondActionMode = mode;
+  document.querySelectorAll("#tabDiamond .perf-toggle button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+  document.getElementById("diamondNewCustomerLabel").textContent = mode === "trial"
+    ? "新增要體驗的客人 / 點名單裡的客人記錄體驗,都會用上面選的日期"
+    : "新增要種鑽的客人 / 點名單裡的客人種下一顆,都會用上面選的日期";
+  renderDiamondList();
+};
+
 window.renderDiamondList = function renderDiamondList() {
   const el = document.getElementById("diamondListContent");
   if (!el) return;
@@ -1123,6 +1139,9 @@ window.renderDiamondList = function renderDiamondList() {
   }
   el.innerHTML = visible.map((c) => {
     const i = diamondCustomers.indexOf(c);
+    const isTrialMode = diamondActionMode === "trial";
+    const btnDisabled = isTrialMode && c.hasTrial;
+    const btnLabel = isTrialMode ? (c.hasTrial ? "已體驗" : "記錄體驗") : "種下一顆";
     return `
       <div class="diamond-record">
         <div class="diamond-record-main">
@@ -1133,7 +1152,7 @@ window.renderDiamondList = function renderDiamondList() {
           <div class="diamond-record-progress">已種 ${c.diamondCount}/6 顆${c.hasTrial ? " · 已體驗" : ""}</div>
           <div class="diamond-record-date">${c.lastDate ? escapeHtml(c.lastDate) : "尚未開始"}</div>
         </div>
-        <button class="btn-sm" onclick="plantDiamondAt(${i}, this)">種下一顆</button>
+        <button class="btn-sm" ${btnDisabled ? "disabled" : ""} onclick="plantDiamondAt(${i}, this)">${btnLabel}</button>
       </div>
     `;
   }).join("");
@@ -1144,9 +1163,16 @@ async function doPlantDiamond(customerName) {
   if (!name) return;
   const dateInput = document.getElementById("diamondDate");
   const date = (dateInput && dateInput.value) || todayISO();
+  const isTrial = diamondActionMode === "trial";
   if (previewMode) {
     const existing = diamondCustomers.find((c) => c.customer === name);
-    if (existing) {
+    if (isTrial) {
+      if (existing) {
+        if (!existing.hasTrial) { existing.hasTrial = true; existing.lastDate = date; existing.isDue = false; }
+      } else {
+        diamondCustomers.push({ customer: name, diamondCount: 0, hasTrial: true, lastDate: date, isDue: false });
+      }
+    } else if (existing) {
       if (existing.diamondCount < 6) existing.diamondCount++;
       existing.lastDate = date;
       existing.isDue = false;
@@ -1156,9 +1182,9 @@ async function doPlantDiamond(customerName) {
     renderDiamondList();
     return;
   }
-  await addDoc(collection(db, "pendingActions"), {
-    type: "plantDiamond", customer: name, date, createdAt: serverTimestamp(), synced: false,
-  });
+  const payload = { type: "plantDiamond", customer: name, date, createdAt: serverTimestamp(), synced: false };
+  if (isTrial) payload.slot = "trial";
+  await addDoc(collection(db, "pendingActions"), payload);
 }
 
 window.plantDiamondAt = async function (i, btn) {
