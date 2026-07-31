@@ -222,6 +222,8 @@
   .greeting-name { font-size: 18px; font-weight: 900; color: var(--ink); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .greeting-right { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0; }
   .greeting-right button { background: none; color: var(--accent); font-weight: 700; font-size: 11.5px; padding: 0; min-height: auto; }
+  .greeting-right-top { display: flex; align-items: center; gap: 6px; }
+  .header-icon-btn { width: 26px; height: 26px; border-radius: 50%; background: var(--pill-bg); border: 1px solid var(--card-border); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
 
   /* ── 最近銷售紀錄 ─────────────────── */
   .sale-record { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
@@ -307,9 +309,22 @@
         <div class="greeting-name">Ariel</div>
       </div>
       <div class="greeting-right">
-        <button class="theme-switch" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淺色主題">
-          <span class="theme-switch-knob" id="themeSwitchKnob"></span>
-        </button>
+        <div class="greeting-right-top">
+          <button class="header-icon-btn" onclick="switchTab('settings')" title="設定">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+              <circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+              <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6"/>
+              <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(60 12 12)"/>
+              <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(120 12 12)"/>
+              <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(180 12 12)"/>
+              <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(240 12 12)"/>
+              <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(300 12 12)"/>
+            </svg>
+          </button>
+          <button class="theme-switch" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淺色主題">
+            <span class="theme-switch-knob" id="themeSwitchKnob"></span>
+          </button>
+        </div>
         <div class="status-dot" id="statusDot" title="連線狀態"></div>
       </div>
     </div>
@@ -439,17 +454,6 @@
       <button class="nav-icon-btn" id="navBtnCustomers" onclick="switchTab('customers')" title="客戶總消費">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/>
-        </svg>
-      </button>
-      <button class="nav-icon-btn" id="navBtnSettings" onclick="switchTab('settings')" title="設定">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
-          <circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
-          <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6"/>
-          <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(60 12 12)"/>
-          <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(120 12 12)"/>
-          <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(180 12 12)"/>
-          <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(240 12 12)"/>
-          <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(300 12 12)"/>
         </svg>
       </button>
     </div>
@@ -674,7 +678,6 @@ window.switchTab = function (tab) {
   document.getElementById("navBtnPerformance").classList.toggle("active", tab === "performance");
   document.getElementById("navBtnDiamond").classList.toggle("active", tab === "diamond");
   document.getElementById("navBtnCustomers").classList.toggle("active", tab === "customers");
-  document.getElementById("navBtnSettings").classList.toggle("active", tab === "settings");
 };
 
 // ── 績效 ─────────────────────────────────
