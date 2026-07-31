@@ -477,8 +477,9 @@ import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js?v=2";
 import { PRODUCTS } from "./products-seed.js?v=3";
 import { COMBOS } from "./combos-seed.js?v=3";
 
-// 三個套組都已經改成先實體組裝成有自己庫存的成品(見「庫存修正」的「組裝」模式),
-// 不再是賣的時候才展開扣庫存的套餐,所以配方放這裡而不是 combos-seed.js
+// 只有10件組是真的手動組裝的成品(見「庫存修正」的「組裝」模式),裡面含1+2面膜
+// 這個子成品。1+2面膜、4+5+6是直接跟供應商進貨的現成品,不放在這裡,用一般進貨/
+// 修正處理即可(見 products-seed.js)。
 const ASSEMBLY_KITS = {
   "10件組": [
     { code: "119面膜", qty: 1 },
@@ -491,17 +492,7 @@ const ASSEMBLY_KITS = {
     { code: "8號", qty: 1 },
     { code: "鑽石面膜", qty: 1 },
     { code: "洗臉巾", qty: 1 },
-    { code: "1號面膜", qty: 1 },
-    { code: "2號面膜", qty: 1 },
-  ],
-  "1+2面膜": [
-    { code: "1號面膜", qty: 1 },
-    { code: "2號面膜", qty: 1 },
-  ],
-  "4+5+6": [
-    { code: "4號", qty: 1 },
-    { code: "5號", qty: 1 },
-    { code: "6號-1", qty: 1 },
+    { code: "1+2面膜", qty: 1 },
   ],
 };
 const KIT_OPTIONS = Object.keys(ASSEMBLY_KITS).map((code) => {
