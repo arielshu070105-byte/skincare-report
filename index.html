@@ -178,13 +178,13 @@
     display: flex; justify-content: center;
   }
   .bottom-nav-inner {
-    display: flex; gap: 10px; padding: 8px; background: var(--nav-bg);
+    display: flex; gap: 6px; padding: 8px; background: var(--nav-bg);
     border: 1px solid var(--card-border); border-radius: 999px; box-shadow: var(--shadow);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
   .nav-icon-btn {
-    width: 60px; height: 60px; border-radius: 50%; background: transparent; color: var(--ink-soft);
-    font-size: 22px; display: flex; align-items: center; justify-content: center;
+    width: 52px; height: 52px; border-radius: 50%; background: transparent; color: var(--ink-soft);
+    font-size: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     transition: background 0.15s ease, transform 0.1s ease;
   }
   .nav-icon-btn.active { background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 18px var(--accent-shadow); transform: translateY(-2px); }
@@ -378,6 +378,13 @@
       </div>
     </div>
 
+    <div class="tab-view" id="tabCustomers">
+      <div class="card">
+        <h2>客戶總消費</h2>
+        <div id="customerTotalsContent"></div>
+      </div>
+    </div>
+
     <div class="tab-view" id="tabSettings">
       <div class="card">
         <h2>設定</h2>
@@ -398,27 +405,32 @@
   <div class="bottom-nav">
     <div class="bottom-nav-inner">
       <button class="nav-icon-btn" id="navBtnAdjust" onclick="switchTab('adjust')" title="庫存修正">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="27" height="27">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
           <path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>
         </svg>
       </button>
       <button class="nav-icon-btn" id="navBtnPerformance" onclick="switchTab('performance')" title="績效">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="27" height="27">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
           <path d="M4 20V11"/><path d="M12 20V4"/><path d="M20 20v-6"/>
         </svg>
       </button>
       <button class="nav-icon-btn active" id="navBtnSale" onclick="switchTab('sale')" title="登記銷售">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="27" height="27">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
           <path d="M12 4v16M4 12h16"/>
         </svg>
       </button>
       <button class="nav-icon-btn" id="navBtnDiamond" onclick="switchTab('diamond')" title="種鑽紀錄">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="27" height="27">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
           <path d="M4 9L12 3L20 9L12 21L4 9Z"/><path d="M4 9H20"/><path d="M9 9L12 21"/><path d="M15 9L12 21"/>
         </svg>
       </button>
+      <button class="nav-icon-btn" id="navBtnCustomers" onclick="switchTab('customers')" title="客戶總消費">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/>
+        </svg>
+      </button>
       <button class="nav-icon-btn" id="navBtnSettings" onclick="switchTab('settings')" title="設定">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="27" height="27">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
           <circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
           <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6"/>
           <rect x="10.8" y="2.4" width="2.4" height="3.2" rx="0.6" transform="rotate(60 12 12)"/>
@@ -463,6 +475,7 @@ let salesList = [];
 let editingSaleId = null;
 let diamondCustomers = [];
 let stockList = [];
+let customerTotals = [];
 
 // ── 深色/淺色主題切換 ─────────────────────
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>`;
@@ -531,11 +544,13 @@ async function onLoggedIn(user) {
     salesList = (snap.exists() && snap.data().salesList) || [];
     diamondCustomers = (snap.exists() && snap.data().diamondCustomers) || [];
     stockList = (snap.exists() && snap.data().stockList) || [];
+    customerTotals = (snap.exists() && snap.data().customerTotals) || [];
     lastSyncAt = (snap.exists() && snap.data().updatedAt && snap.data().updatedAt.toDate) ? snap.data().updatedAt.toDate() : new Date();
     renderPerformance();
     renderSalesList();
     renderDiamondList();
     renderStockList();
+    renderCustomerTotals();
     updateStatusDot();
   }, (e) => { console.error(e); dailyTotals = []; renderPerformance(); updateStatusDot(); });
 }
@@ -557,6 +572,8 @@ window.previewOnly = function () {
   renderDiamondList();
   stockList = [];
   renderStockList();
+  customerTotals = [];
+  renderCustomerTotals();
   updateStatusDot();
 };
 
@@ -635,11 +652,13 @@ window.switchTab = function (tab) {
   document.getElementById("tabAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("tabPerformance").classList.toggle("active", tab === "performance");
   document.getElementById("tabDiamond").classList.toggle("active", tab === "diamond");
+  document.getElementById("tabCustomers").classList.toggle("active", tab === "customers");
   document.getElementById("tabSettings").classList.toggle("active", tab === "settings");
   document.getElementById("navBtnSale").classList.toggle("active", tab === "sale");
   document.getElementById("navBtnAdjust").classList.toggle("active", tab === "adjust");
   document.getElementById("navBtnPerformance").classList.toggle("active", tab === "performance");
   document.getElementById("navBtnDiamond").classList.toggle("active", tab === "diamond");
+  document.getElementById("navBtnCustomers").classList.toggle("active", tab === "customers");
   document.getElementById("navBtnSettings").classList.toggle("active", tab === "settings");
 };
 
@@ -1196,6 +1215,22 @@ window.selectStockForAdjust = function (code) {
   }
   const qtyInput = document.getElementById("adjustQty");
   if (qtyInput) { qtyInput.focus(); qtyInput.select(); }
+};
+
+// ── 客戶總消費(只要在銷售明細出現過的客戶都會加總) ──
+window.renderCustomerTotals = function renderCustomerTotals() {
+  const el = document.getElementById("customerTotalsContent");
+  if (!el) return;
+  if (!customerTotals || customerTotals.length === 0) {
+    el.innerHTML = `<div class="list-empty">還沒有銷售資料。</div>`;
+    return;
+  }
+  el.innerHTML = customerTotals.map((c) => `
+    <div class="stock-record">
+      <div class="stock-record-name">${escapeHtml(c.customer)}</div>
+      <div class="stock-record-qty">${formatCurrency(c.total)}</div>
+    </div>
+  `).join("");
 };
 
 // ── 庫存修正 ─────────────────────────────
