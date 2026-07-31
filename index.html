@@ -172,18 +172,18 @@
   .tab-view { display: none; }
   .tab-view.active { display: block; }
 
-  #app { padding-bottom: 92px; }
+  #app { padding-bottom: 108px; }
   .bottom-nav {
-    position: fixed; left: 0; right: 0; bottom: 18px; z-index: 50;
-    display: flex; justify-content: center;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
   }
   .bottom-nav-inner {
-    display: flex; gap: 6px; padding: 8px; background: var(--nav-bg);
-    border: 1px solid var(--card-border); border-radius: 999px; box-shadow: var(--shadow);
+    display: flex; justify-content: space-around; align-items: center; width: 100%;
+    padding: 12px 8px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--nav-bg);
+    border-top: 1px solid var(--card-border); border-radius: 28px 28px 0 0; box-shadow: var(--shadow);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
   .nav-icon-btn {
-    width: 52px; height: 52px; border-radius: 50%; background: transparent; color: var(--ink-soft);
+    width: 60px; height: 60px; border-radius: 50%; background: transparent; color: var(--ink-soft);
     font-size: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     transition: background 0.15s ease, transform 0.1s ease;
   }
@@ -432,27 +432,27 @@
   <div class="bottom-nav">
     <div class="bottom-nav-inner">
       <button class="nav-icon-btn" id="navBtnAdjust" onclick="switchTab('adjust')" title="庫存修正">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
           <path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>
         </svg>
       </button>
       <button class="nav-icon-btn" id="navBtnPerformance" onclick="switchTab('performance')" title="績效">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
           <path d="M4 20V11"/><path d="M12 20V4"/><path d="M20 20v-6"/>
         </svg>
       </button>
       <button class="nav-icon-btn active" id="navBtnSale" onclick="switchTab('sale')" title="登記銷售">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
           <path d="M12 4v16M4 12h16"/>
         </svg>
       </button>
       <button class="nav-icon-btn" id="navBtnDiamond" onclick="switchTab('diamond')" title="種鑽紀錄">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
           <path d="M4 9L12 3L20 9L12 21L4 9Z"/><path d="M4 9H20"/><path d="M9 9L12 21"/><path d="M15 9L12 21"/>
         </svg>
       </button>
       <button class="nav-icon-btn" id="navBtnCustomers" onclick="switchTab('customers')" title="客戶總消費">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/>
         </svg>
       </button>
