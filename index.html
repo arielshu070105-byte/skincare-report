@@ -252,6 +252,10 @@
   .diamond-record-progress { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
   .diamond-record-date { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
   .diamond-record .btn-sm { flex-shrink: 0; }
+  .diamond-record-customer { cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  .diamond-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .diamond-detail-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; color: var(--ink-soft); }
+  .diamond-detail-row.filled { color: var(--ink); font-weight: 700; }
 
   /* ── 庫存檢表 ─────────────────────── */
   .stock-record { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
@@ -486,6 +490,7 @@ let stockList = [];
 let customerTotals = [];
 let adjustMode = "adjust";
 let diamondActionMode = "plant";
+let expandedDiamondCustomer = null;
 
 // ── 深色/淺色主題切換 ─────────────────────
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>`;
@@ -1125,6 +1130,11 @@ window.setDiamondActionMode = function (mode) {
   renderDiamondList();
 };
 
+window.toggleDiamondDetail = function (name) {
+  expandedDiamondCustomer = expandedDiamondCustomer === name ? null : name;
+  renderDiamondList();
+};
+
 window.renderDiamondList = function renderDiamondList() {
   const el = document.getElementById("diamondListContent");
   if (!el) return;
@@ -1142,15 +1152,22 @@ window.renderDiamondList = function renderDiamondList() {
     const isTrialMode = diamondActionMode === "trial";
     const btnDisabled = isTrialMode && c.hasTrial;
     const btnLabel = isTrialMode ? (c.hasTrial ? "已體驗" : "記錄體驗") : "種下一顆";
+    const isExpanded = expandedDiamondCustomer === c.customer;
+    const detailHtml = isExpanded
+      ? `<div class="diamond-detail">${(c.slots || []).map((s) =>
+          `<div class="diamond-detail-row${s.date ? " filled" : ""}"><span>${escapeHtml(s.label)}</span><span>${s.date ? escapeHtml(s.date) : "未填"}</span></div>`
+        ).join("")}</div>`
+      : "";
     return `
       <div class="diamond-record">
         <div class="diamond-record-main">
           <div class="diamond-record-top">
-            <span class="diamond-record-customer">${escapeHtml(c.customer)}</span>
+            <span class="diamond-record-customer" onclick="toggleDiamondDetail('${escapeHtml(c.customer).replace(/'/g, "\\'")}')">${escapeHtml(c.customer)}</span>
             ${c.isDue ? `<span class="diamond-due-badge">🔔</span>` : ""}
           </div>
           <div class="diamond-record-progress">已種 ${c.diamondCount}/6 顆${c.hasTrial ? " · 已體驗" : ""}</div>
           <div class="diamond-record-date">${c.lastDate ? escapeHtml(c.lastDate) : "尚未開始"}</div>
+          ${detailHtml}
         </div>
         <button class="btn-sm" ${btnDisabled ? "disabled" : ""} onclick="plantDiamondAt(${i}, this)">${btnLabel}</button>
       </div>
