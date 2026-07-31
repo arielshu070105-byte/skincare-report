@@ -1,5 +1,6 @@
 // 從「保養品進銷存.xlsx」的「商品」表匯出,商品有變動要重新匯出更新這支檔案
 export const PRODUCTS = [
+  { code: "10件組", name: "10件組", price: 16229 },
   { code: "119面膜", name: "119冰潤霜(70ml*3ea)", price: 1466 },
   { code: "粉", name: "酵素潔面粉(80g)", price: 733 },
   { code: "1號", name: "多肽化妝水(200ml)", price: 733 },
@@ -32,5 +33,4 @@ export const PRODUCTS = [
   { code: "能量果凍", name: "能量果凍", price: 1720 },
   { code: "關節組", name: "關節組", price: 2200 },
   { code: "黑蒜魚油", name: "黑蒜魚油", price: 1080 },
-  { code: "10件組", name: "10件組", price: 16229 },
 ];
