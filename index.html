@@ -355,10 +355,13 @@
         <div class="perf-toggle">
           <button class="active" data-mode="adjust" onclick="setAdjustMode('adjust')">盤點修正為</button>
           <button data-mode="restock" onclick="setAdjustMode('restock')">進貨+N</button>
+          <button data-mode="assemble" onclick="setAdjustMode('assemble')">組裝10件組</button>
         </div>
         <p id="adjustModeHint">盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。</p>
-        <label>商品</label>
-        <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
+        <div id="adjustProductSection">
+          <label>商品</label>
+          <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
+        </div>
         <label for="adjustQty" id="adjustQtyLabel">實際庫存數量</label>
         <input id="adjustQty" type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input">
         <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjust()">送出庫存修正</button>
@@ -473,6 +476,24 @@ import { initFirebase, loadConfig, saveConfig, parseConfigInput } from "./fireba
 import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js?v=2";
 import { PRODUCTS } from "./products-seed.js?v=2";
 import { COMBOS } from "./combos-seed.js?v=2";
+
+// 10件組已經改成先實體組裝成有自己庫存的成品(見「庫存修正」的「組裝10件組」模式),
+// 不再是賣的時候才展開扣庫存的套餐,所以配方放這裡而不是 combos-seed.js
+const ASSEMBLY_KIT_CODE = "10件組";
+const ASSEMBLY_KIT_COMPONENTS = [
+  { code: "119面膜", qty: 1 },
+  { code: "粉", qty: 1 },
+  { code: "1號", qty: 1 },
+  { code: "3號", qty: 1 },
+  { code: "5號", qty: 1 },
+  { code: "6號-2", qty: 1 },
+  { code: "7號", qty: 1 },
+  { code: "8號", qty: 1 },
+  { code: "鑽石面膜", qty: 1 },
+  { code: "洗臉巾", qty: 1 },
+  { code: "1號面膜", qty: 1 },
+  { code: "2號面膜", qty: 1 },
+];
 import {
   collection, addDoc, serverTimestamp, doc, getDoc, setDoc, onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -1309,10 +1330,15 @@ window.setAdjustMode = function (mode) {
   document.querySelectorAll("#tabAdjust .perf-toggle button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
+  document.getElementById("adjustProductSection").style.display = mode === "assemble" ? "none" : "block";
   if (mode === "restock") {
     document.getElementById("adjustModeHint").textContent = "進貨到了,填這次實際到貨的數量就好,會直接加到目前庫存上,不用自己算現在庫存是多少。";
     document.getElementById("adjustQtyLabel").textContent = "這次進貨數量";
     document.getElementById("adjustSubmitBtn").textContent = "送出進貨";
+  } else if (mode === "assemble") {
+    document.getElementById("adjustModeHint").textContent = "組裝好幾組10件組,填組數就好,系統會自動扣掉裡面12個單品各自的庫存,並把10件組的庫存加上去。";
+    document.getElementById("adjustQtyLabel").textContent = "這次組裝幾組";
+    document.getElementById("adjustSubmitBtn").textContent = "送出組裝";
   } else {
     document.getElementById("adjustModeHint").textContent = "盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。";
     document.getElementById("adjustQtyLabel").textContent = "實際庫存數量";
@@ -1321,21 +1347,28 @@ window.setAdjustMode = function (mode) {
 };
 
 window.submitAdjust = async function () {
-  const code = document.getElementById("adjustProduct").dataset.value;
   const qtyValue = Number(document.getElementById("adjustQty").value);
   const statusEl = document.getElementById("adjustStatus");
   const btn = document.getElementById("adjustSubmitBtn");
-  const product = PRODUCTS.find((p) => p.code === code);
   if (previewMode) { statusEl.textContent = "預覽模式,不會真的送出"; statusEl.className = "status-msg"; return; }
-  if (!product) { statusEl.textContent = "請選擇商品"; statusEl.className = "status-msg err"; return; }
   if (!Number.isFinite(qtyValue) || qtyValue < 0) { statusEl.textContent = "請填正確的數量"; statusEl.className = "status-msg err"; return; }
+
+  let payload;
+  if (adjustMode === "assemble") {
+    payload = { type: "assembleKit", code: ASSEMBLY_KIT_CODE, name: ASSEMBLY_KIT_CODE, qty: qtyValue, components: ASSEMBLY_KIT_COMPONENTS };
+  } else {
+    const code = document.getElementById("adjustProduct").dataset.value;
+    const product = PRODUCTS.find((p) => p.code === code);
+    if (!product) { statusEl.textContent = "請選擇商品"; statusEl.className = "status-msg err"; return; }
+    payload = adjustMode === "restock"
+      ? { type: "restock", code: product.code, name: product.name, qty: qtyValue }
+      : { type: "stockAdjust", code: product.code, name: product.name, targetQty: qtyValue };
+  }
+
   btn.disabled = true;
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
   try {
-    const payload = adjustMode === "restock"
-      ? { type: "restock", code: product.code, name: product.name, qty: qtyValue }
-      : { type: "stockAdjust", code: product.code, name: product.name, targetQty: qtyValue };
     await addDoc(collection(db, "pendingActions"), {
       ...payload,
       date: todayISO(),

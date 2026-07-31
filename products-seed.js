@@ -22,7 +22,7 @@ export const PRODUCTS = [
   { code: "CPR", name: "CPR", price: 5000 },
   { code: "緊緻安瓶", name: "緊緻安瓶", price: 5000 },
   { code: "微針淡斑組", name: "微針淡斑組", price: 2790 },
-  { code: "抗敏乳液", name: "抗敏乳液", price: 3880 },
+  { code: "抗敏乳液", name: "抗敏乳液", price: 970 },
   { code: "21號氣墊", name: "21號氣墊", price: 980 },
   { code: "椰皮面膜", name: "椰皮面膜", price: 860 },
   { code: "CB霜", name: "CB霜", price: 830 },
@@ -32,4 +32,5 @@ export const PRODUCTS = [
   { code: "能量果凍", name: "能量果凍", price: 1720 },
   { code: "關節組", name: "關節組", price: 2200 },
   { code: "黑蒜魚油", name: "黑蒜魚油", price: 1080 },
+  { code: "10件組", name: "10件組", price: 16229 },
 ];
