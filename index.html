@@ -355,7 +355,7 @@
         <div class="perf-toggle">
           <button class="active" data-mode="adjust" onclick="setAdjustMode('adjust')">盤點修正為</button>
           <button data-mode="restock" onclick="setAdjustMode('restock')">進貨+N</button>
-          <button data-mode="assemble" onclick="setAdjustMode('assemble')">組裝10件組</button>
+          <button data-mode="assemble" onclick="setAdjustMode('assemble')">組裝</button>
           <button data-mode="disassemble" onclick="setAdjustMode('disassemble')">拆解</button>
         </div>
         <p id="adjustModeHint">盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。</p>
@@ -478,9 +478,9 @@ import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js?v=2";
 import { PRODUCTS } from "./products-seed.js?v=3";
 import { COMBOS } from "./combos-seed.js?v=3";
 
-// 只有10件組是真的手動組裝的成品(見「庫存修正」的「組裝」模式),裡面含1+2面膜
-// 這個子成品。1+2面膜、4+5+6是直接跟供應商進貨的現成品,不放在這裡,用一般進貨/
-// 修正處理即可(見 products-seed.js)。
+// 10件組是真的手動組裝的成品(裡面含1+2面膜這個子成品)。1+2面膜、4+5+6平常是直接跟
+// 供應商進貨的現成品,不太需要「組裝」,但也放進這裡,主要是為了讓「拆解」可用——
+// 缺某個單品時可以拆一份現成套裝補上(見「庫存修正」的「組裝」/「拆解」模式)。
 const ASSEMBLY_KITS = {
   "10件組": [
     { code: "119面膜", qty: 1 },
@@ -494,6 +494,15 @@ const ASSEMBLY_KITS = {
     { code: "鑽石面膜", qty: 1 },
     { code: "洗臉巾", qty: 1 },
     { code: "1+2面膜", qty: 1 },
+  ],
+  "1+2面膜": [
+    { code: "1號面膜", qty: 1 },
+    { code: "2號面膜", qty: 1 },
+  ],
+  "4+5+6": [
+    { code: "4號", qty: 1 },
+    { code: "5號", qty: 1 },
+    { code: "6號-1", qty: 1 },
   ],
 };
 const KIT_OPTIONS = Object.keys(ASSEMBLY_KITS).map((code) => {
