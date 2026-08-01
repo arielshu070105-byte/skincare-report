@@ -137,6 +137,7 @@
   .stat-tile.warn .num { color: var(--danger); }
   .stat-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
 
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { border: 1px solid var(--card-border); background: var(--input-bg); color: var(--ink-soft); font-size: 13.5px; padding: 8px 14px; border-radius: 999px; }
   .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
@@ -220,10 +221,10 @@
 
     <div class="card">
       <h2>新增送件記錄</h2>
-      <label for="f-date">送件日期</label>
-      <input type="date" id="f-date">
-      <label for="f-name">客戶姓名</label>
-      <input type="text" id="f-name" placeholder="王小明">
+      <div class="field-row">
+        <div><label for="f-date">送件日期</label><input type="date" id="f-date"></div>
+        <div><label for="f-name">客戶姓名</label><input type="text" id="f-name" placeholder="王小明"></div>
+      </div>
       <label>案件類型</label>
       <div class="chip-group" id="typeChips" role="group" aria-label="案件類型">
         <button type="button" class="chip" data-value="新契約" aria-pressed="true">新契約</button>
