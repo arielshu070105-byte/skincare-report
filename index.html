@@ -356,6 +356,7 @@
           <button class="active" data-mode="adjust" onclick="setAdjustMode('adjust')">盤點修正為</button>
           <button data-mode="restock" onclick="setAdjustMode('restock')">進貨+N</button>
           <button data-mode="assemble" onclick="setAdjustMode('assemble')">組裝10件組</button>
+          <button data-mode="disassemble" onclick="setAdjustMode('disassemble')">拆解</button>
         </div>
         <p id="adjustModeHint">盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。</p>
         <div id="adjustProductSection">
@@ -951,7 +952,8 @@ window.closePicker = function () {
 };
 
 window.openAdjustPicker = function () {
-  openPicker("adjustProduct", adjustMode === "assemble" ? KIT_OPTIONS : PRODUCT_OPTIONS);
+  const useKits = adjustMode === "assemble" || adjustMode === "disassemble";
+  openPicker("adjustProduct", useKits ? KIT_OPTIONS : PRODUCT_OPTIONS);
 };
 
 window.renderPickerList = function () {
@@ -1387,6 +1389,10 @@ window.setAdjustMode = function (mode) {
     document.getElementById("adjustModeHint").textContent = "選要組裝的套組、填這次組裝幾組,系統會自動扣掉裡面每個單品的庫存,並把這個套組自己的庫存加上去。";
     document.getElementById("adjustQtyLabel").textContent = "這次組裝幾組";
     document.getElementById("adjustSubmitBtn").textContent = "送出組裝";
+  } else if (mode === "disassemble") {
+    document.getElementById("adjustModeHint").textContent = "選要拆解的套組、填這次拆解幾組,系統會自動把套組庫存扣掉,裡面每個單品的庫存各加回去,方便拿其中一項單品去補別的需求。";
+    document.getElementById("adjustQtyLabel").textContent = "這次拆解幾組";
+    document.getElementById("adjustSubmitBtn").textContent = "送出拆解";
   } else {
     document.getElementById("adjustModeHint").textContent = "盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。";
     document.getElementById("adjustQtyLabel").textContent = "實際庫存數量";
@@ -1402,12 +1408,15 @@ window.submitAdjust = async function () {
   if (!Number.isFinite(qtyValue) || qtyValue < 0) { statusEl.textContent = "請填正確的數量"; statusEl.className = "status-msg err"; return; }
 
   let payload;
-  if (adjustMode === "assemble") {
+  if (adjustMode === "assemble" || adjustMode === "disassemble") {
     const code = document.getElementById("adjustProduct").dataset.value;
     const components = ASSEMBLY_KITS[code];
-    if (!components) { statusEl.textContent = "請選擇要組裝的套組"; statusEl.className = "status-msg err"; return; }
+    if (!components) { statusEl.textContent = "請選擇要組裝/拆解的套組"; statusEl.className = "status-msg err"; return; }
     const kitProduct = PRODUCTS.find((p) => p.code === code);
-    payload = { type: "assembleKit", code, name: kitProduct ? kitProduct.name : code, qty: qtyValue, components };
+    // 拆解就是組裝的相反動作:套組數量填負的,套組庫存變成減少、裡面每個單品變成增加,
+    // 同步端(assembleKit)本身是純疊加寫法,負數直接就會反過來動作,不用另外寫一套拆解邏輯
+    const signedQty = adjustMode === "disassemble" ? -qtyValue : qtyValue;
+    payload = { type: "assembleKit", code, name: kitProduct ? kitProduct.name : code, qty: signedQty, components };
   } else {
     const code = document.getElementById("adjustProduct").dataset.value;
     const product = PRODUCTS.find((p) => p.code === code);
