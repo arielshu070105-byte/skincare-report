@@ -267,6 +267,10 @@
   .stock-record-qty { font-size: 16px; font-weight: 900; color: var(--ink); flex-shrink: 0; }
   .stock-record { cursor: pointer; }
   .stock-record:active { background: var(--accent-soft); }
+  .stock-total { cursor: default; margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .stock-total:active { background: none; }
+  .stock-total .stock-record-name { font-weight: 900; }
+  .stock-total .stock-record-qty { font-size: 18px; }
 
   /* ── 設定 ─────────────────────────── */
   .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0 14px; }
@@ -1366,6 +1370,10 @@ window.renderStockList = function renderStockList() {
     el.innerHTML = `<div class="list-empty">還沒有庫存資料。</div>`;
     return;
   }
+  const totalValue = stockList.reduce((sum, s) => {
+    const product = PRODUCTS.find((p) => p.code === s.code);
+    return sum + (product ? product.price * s.stock : 0);
+  }, 0);
   el.innerHTML = stockList.map((s) => `
     <div class="stock-record" onclick="selectStockForAdjust('${escapeHtml(s.code).replace(/'/g, "\\'")}')">
       <div>
@@ -1374,7 +1382,12 @@ window.renderStockList = function renderStockList() {
       </div>
       <div class="stock-record-qty">${s.stock}</div>
     </div>
-  `).join("");
+  `).join("") + `
+    <div class="stock-record stock-total">
+      <div class="stock-record-name">庫存總金額(依會員價)</div>
+      <div class="stock-record-qty">${formatCurrency(totalValue)}</div>
+    </div>
+  `;
 };
 
 // 點庫存檢表裡的商品,直接把該商品帶進上面的庫存修正表單,不用再從選單裡搜一次
