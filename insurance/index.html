@@ -140,9 +140,8 @@
   .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { border: 1px solid var(--card-border); background: var(--input-bg); color: var(--ink-soft); font-size: 13.5px; padding: 8px 14px; border-radius: 999px; }
   .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
-  .filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
-  .filter-row::-webkit-scrollbar { display: none; }
-  .filter-row .chip { white-space: nowrap; flex-shrink: 0; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .filter-row .chip { white-space: nowrap; }
 
   .day-group { margin-bottom: 6px; }
   .day-head { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 8px; padding: 0 2px; }
