@@ -520,6 +520,27 @@ let stockList = [];
 let customerTotals = [];
 let adjustMode = "adjust";
 let diamondActionMode = "plant";
+
+// 送出的動作先存進雲端(pendingActions),真正寫進電腦的Excel要等背景同步程式下一輪(目前30秒)才會發生。
+// 這個函式監聽剛剛那一筆的 synced 欄位,確認真的寫進 Excel 之後才顯示「已同步」,而不是只顯示「已送出」
+// 就讓人誤以為資料已經到Excel了。40秒內沒等到同步確認,就提示使用者去檢查電腦Excel是否開著。
+function waitForSync(docRef, statusEl, successText) {
+  if (!docRef || !statusEl) return;
+  let unsub = null;
+  const timeoutId = setTimeout(() => {
+    if (unsub) unsub();
+    statusEl.textContent = "已送出,但超過40秒還沒同步確認,請確認電腦Excel是否開著、背景程式是否在跑";
+    statusEl.className = "status-msg err";
+  }, 40000);
+  unsub = onSnapshot(docRef, (snap) => {
+    if (snap.exists() && snap.data().synced) {
+      clearTimeout(timeoutId);
+      unsub();
+      statusEl.textContent = successText || "✅ 已同步到 Excel";
+      statusEl.className = "status-msg ok";
+    }
+  });
+}
 let expandedDiamondCustomer = null;
 
 // ── 深色/淺色主題切換 ─────────────────────
@@ -1115,8 +1136,9 @@ window.submitSale = async function () {
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
   try {
+    let docRef;
     if (editingSaleId) {
-      await addDoc(collection(db, "pendingActions"), {
+      docRef = await addDoc(collection(db, "pendingActions"), {
         type: "editSale",
         saleId: editingSaleId,
         customer,
@@ -1125,9 +1147,10 @@ window.submitSale = async function () {
         createdAt: serverTimestamp(),
         synced: false,
       });
-      statusEl.textContent = "已送出修改,電腦開著時會自動同步進 Excel";
+      statusEl.textContent = "已送出修改,等待同步確認…";
+      waitForSync(docRef, statusEl, "✅ 修改已同步到 Excel");
     } else {
-      await addDoc(collection(db, "pendingActions"), {
+      docRef = await addDoc(collection(db, "pendingActions"), {
         type: "sale",
         customer,
         items: lines,
@@ -1135,7 +1158,8 @@ window.submitSale = async function () {
         createdAt: serverTimestamp(),
         synced: false,
       });
-      statusEl.textContent = "已送出,電腦開著時會自動同步進 Excel";
+      statusEl.textContent = "已送出,等待同步確認…";
+      waitForSync(docRef, statusEl, "✅ 已同步到 Excel");
     }
     statusEl.className = "status-msg ok";
     cancelEditSale();
@@ -1230,20 +1254,34 @@ async function doPlantDiamond(customerName) {
   }
   const payload = { type: "plantDiamond", customer: name, date, createdAt: serverTimestamp(), synced: false };
   if (isTrial) payload.slot = "trial";
-  await addDoc(collection(db, "pendingActions"), payload);
+  return await addDoc(collection(db, "pendingActions"), payload);
 }
 
 window.plantDiamondAt = async function (i, btn) {
   const c = diamondCustomers[i];
   if (!c) return;
   if (btn) { if (btn.disabled) return; btn.disabled = true; } // 防止手指點快了同一個動作連續送出好幾次
+  const originalLabel = btn ? btn.textContent : "";
   try {
-    await doPlantDiamond(c.customer);
+    const docRef = await doPlantDiamond(c.customer);
+    if (btn) btn.textContent = "等待同步…";
+    if (docRef) {
+      // 按鈕本身可能因為名單重新整理被換掉,所以這裡不強求在按鈕上顯示「已同步」,
+      // 只要確保沒同步成功也不會讓按鈕永遠卡在disabled狀態
+      const timeoutId = setTimeout(() => { if (btn) { btn.textContent = originalLabel; btn.disabled = false; } }, 40000);
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists() && snap.data().synced) {
+          clearTimeout(timeoutId);
+          unsub();
+          if (btn) { btn.textContent = originalLabel; btn.disabled = false; }
+        }
+      });
+      return;
+    }
   } catch (e) {
     alert("送出失敗:" + e.message);
-  } finally {
-    if (btn) btn.disabled = false;
   }
+  if (btn) btn.disabled = false;
 };
 
 window.addDiamondCustomer = async function () {
@@ -1260,9 +1298,14 @@ window.addDiamondCustomer = async function () {
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
   try {
-    await doPlantDiamond(name);
+    const docRef = await doPlantDiamond(name);
     input.value = "";
-    statusEl.textContent = previewMode ? "已加入(預覽模式,未真的送出)" : "已送出,電腦開著時會自動同步進 Excel";
+    if (previewMode) {
+      statusEl.textContent = "已加入(預覽模式,未真的送出)";
+    } else {
+      statusEl.textContent = "已送出,等待同步確認…";
+      waitForSync(docRef, statusEl, "✅ 已同步到 Excel");
+    }
     statusEl.className = "status-msg ok";
   } catch (e) {
     statusEl.textContent = "送出失敗:" + e.message;
@@ -1378,14 +1421,15 @@ window.submitAdjust = async function () {
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
   try {
-    await addDoc(collection(db, "pendingActions"), {
+    const docRef = await addDoc(collection(db, "pendingActions"), {
       ...payload,
       date: todayISO(),
       createdAt: serverTimestamp(),
       synced: false,
     });
-    statusEl.textContent = "已送出,電腦開著時會自動同步進 Excel";
+    statusEl.textContent = "已送出,等待同步確認…";
     statusEl.className = "status-msg ok";
+    waitForSync(docRef, statusEl, "✅ 已同步到 Excel");
     document.getElementById("adjustQty").value = "";
   } catch (e) {
     statusEl.textContent = "送出失敗:" + e.message;
