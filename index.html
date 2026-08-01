@@ -1425,11 +1425,15 @@ window.addRestockLine = function () {
   div.className = "line-item";
   div.id = id;
   div.innerHTML = `
-    <button type="button" class="picker-trigger placeholder" data-role="product" data-value="" data-picker-id="${pickerId}" onclick="openPicker('${pickerId}', PRODUCT_OPTIONS)">選擇商品…<span class="chevron">▾</span></button>
+    <button type="button" class="picker-trigger placeholder" data-role="product" data-value="" data-picker-id="${pickerId}" onclick="openRestockPicker('${pickerId}')">選擇商品…<span class="chevron">▾</span></button>
     <input type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input" placeholder="數量" data-role="qty">
     <button class="remove-btn" onclick="removeRestockLine('${id}')">×</button>
   `;
   container.appendChild(div);
+};
+
+window.openRestockPicker = function (pickerId) {
+  openPicker(pickerId, PRODUCT_OPTIONS);
 };
 
 window.removeRestockLine = function (id) {
