@@ -359,12 +359,18 @@
           <button data-mode="disassemble" onclick="setAdjustMode('disassemble')">拆解</button>
         </div>
         <p id="adjustModeHint">盤點後發現數量不對,填入實際數字就好,差額會自動算出來。點下面清單裡的商品可以直接帶入。</p>
-        <div id="adjustProductSection">
-          <label>商品</label>
-          <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
+        <div id="adjustSingleSection">
+          <div id="adjustProductSection">
+            <label>商品</label>
+            <button type="button" class="picker-trigger placeholder" id="adjustProduct" data-value="" onclick="openAdjustPicker()">選擇商品…<span class="chevron">▾</span></button>
+          </div>
+          <label for="adjustQty" id="adjustQtyLabel">實際庫存數量</label>
+          <input id="adjustQty" type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input">
         </div>
-        <label for="adjustQty" id="adjustQtyLabel">實際庫存數量</label>
-        <input id="adjustQty" type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input">
+        <div id="adjustMultiSection" style="display:none">
+          <div id="restockLines"></div>
+          <button class="btn-ghost" onclick="addRestockLine()">+ 加一項商品</button>
+        </div>
         <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjust()">送出庫存修正</button>
         <p id="adjustStatus" class="status-msg"></p>
       </div>
@@ -549,6 +555,32 @@ function waitForSync(docRef, statusEl, successText) {
       statusEl.textContent = successText || "✅ 已同步到 Excel";
       statusEl.className = "status-msg ok";
     }
+  });
+}
+
+// 一次送出多筆(例如進貨一次登記好幾項商品),全部都同步確認了才顯示成功
+function waitForSyncMultiple(docRefs, statusEl, successText) {
+  if (!docRefs || docRefs.length === 0 || !statusEl) return;
+  let remaining = docRefs.length;
+  const unsubs = [];
+  const timeoutId = setTimeout(() => {
+    unsubs.forEach((u) => u());
+    statusEl.textContent = `已送出,但超過40秒還有${remaining}項還沒同步確認,請確認電腦Excel是否開著、背景程式是否在跑`;
+    statusEl.className = "status-msg err";
+  }, 40000);
+  docRefs.forEach((docRef) => {
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists() && snap.data().synced) {
+        unsub();
+        remaining--;
+        if (remaining === 0) {
+          clearTimeout(timeoutId);
+          statusEl.textContent = successText || "✅ 已同步到 Excel";
+          statusEl.className = "status-msg ok";
+        }
+      }
+    });
+    unsubs.push(unsub);
   });
 }
 let expandedDiamondCustomer = null;
@@ -1384,16 +1416,51 @@ window.renderAdjustOptions = function renderAdjustOptions() {
   btn.insertAdjacentHTML("beforeend", `<span class="chevron">▾</span>`);
 };
 
+let restockLineCount = 0;
+window.addRestockLine = function () {
+  const id = "restockLine" + (++restockLineCount);
+  const container = document.getElementById("restockLines");
+  const pickerId = id + "-picker";
+  const div = document.createElement("div");
+  div.className = "line-item";
+  div.id = id;
+  div.innerHTML = `
+    <button type="button" class="picker-trigger placeholder" data-role="product" data-value="" data-picker-id="${pickerId}" onclick="openPicker('${pickerId}', PRODUCT_OPTIONS)">選擇商品…<span class="chevron">▾</span></button>
+    <input type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input" placeholder="數量" data-role="qty">
+    <button class="remove-btn" onclick="removeRestockLine('${id}')">×</button>
+  `;
+  container.appendChild(div);
+};
+
+window.removeRestockLine = function (id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+};
+
+function getRestockLines() {
+  const lines = [];
+  document.querySelectorAll("#restockLines .line-item").forEach((el) => {
+    const code = el.querySelector('[data-role="product"]').dataset.value;
+    const qty = Number(el.querySelector('[data-role="qty"]').value) || 0;
+    const product = PRODUCTS.find((p) => p.code === code);
+    if (product && qty > 0) lines.push({ code: product.code, name: product.name, qty });
+  });
+  return lines;
+}
+
 window.setAdjustMode = function (mode) {
   adjustMode = mode;
   document.querySelectorAll("#tabAdjust .perf-toggle button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
   renderAdjustOptions(); // 換模式時重置商品選擇,避免選到另一個模式下不適用的選項
+  document.getElementById("adjustSingleSection").style.display = mode === "restock" ? "none" : "";
+  document.getElementById("adjustMultiSection").style.display = mode === "restock" ? "" : "none";
   if (mode === "restock") {
-    document.getElementById("adjustModeHint").textContent = "進貨到了,填這次實際到貨的數量就好,會直接加到目前庫存上,不用自己算現在庫存是多少。";
-    document.getElementById("adjustQtyLabel").textContent = "這次進貨數量";
+    document.getElementById("adjustModeHint").textContent = "進貨到了,可以一次登記好幾項商品,各填這次實際到貨的數量,會直接加到目前庫存上,不用自己算現在庫存是多少。";
     document.getElementById("adjustSubmitBtn").textContent = "送出進貨";
+    document.getElementById("restockLines").innerHTML = "";
+    addRestockLine();
   } else if (mode === "assemble") {
     document.getElementById("adjustModeHint").textContent = "選要組裝的套組、填這次組裝幾組,系統會自動扣掉裡面每個單品的庫存,並把這個套組自己的庫存加上去。";
     document.getElementById("adjustQtyLabel").textContent = "這次組裝幾組";
@@ -1410,10 +1477,36 @@ window.setAdjustMode = function (mode) {
 };
 
 window.submitAdjust = async function () {
-  const qtyValue = Number(document.getElementById("adjustQty").value);
   const statusEl = document.getElementById("adjustStatus");
   const btn = document.getElementById("adjustSubmitBtn");
   if (previewMode) { statusEl.textContent = "預覽模式,不會真的送出"; statusEl.className = "status-msg"; return; }
+
+  if (adjustMode === "restock") {
+    const lines = getRestockLines();
+    if (lines.length === 0) { statusEl.textContent = "請至少選一項商品並填數量"; statusEl.className = "status-msg err"; return; }
+    btn.disabled = true;
+    statusEl.textContent = "送出中…";
+    statusEl.className = "status-msg";
+    try {
+      const docRefs = await Promise.all(lines.map((line) => addDoc(collection(db, "pendingActions"), {
+        type: "restock", code: line.code, name: line.name, qty: line.qty,
+        date: todayISO(), createdAt: serverTimestamp(), synced: false,
+      })));
+      statusEl.textContent = `已送出${lines.length}項,等待同步確認…`;
+      statusEl.className = "status-msg ok";
+      waitForSyncMultiple(docRefs, statusEl, `✅ ${lines.length}項已同步到 Excel`);
+      document.getElementById("restockLines").innerHTML = "";
+      addRestockLine();
+    } catch (e) {
+      statusEl.textContent = "送出失敗:" + e.message;
+      statusEl.className = "status-msg err";
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
+
+  const qtyValue = Number(document.getElementById("adjustQty").value);
   if (!Number.isFinite(qtyValue) || qtyValue < 0) { statusEl.textContent = "請填正確的數量"; statusEl.className = "status-msg err"; return; }
 
   let payload;
@@ -1430,9 +1523,7 @@ window.submitAdjust = async function () {
     const code = document.getElementById("adjustProduct").dataset.value;
     const product = PRODUCTS.find((p) => p.code === code);
     if (!product) { statusEl.textContent = "請選擇商品"; statusEl.className = "status-msg err"; return; }
-    payload = adjustMode === "restock"
-      ? { type: "restock", code: product.code, name: product.name, qty: qtyValue }
-      : { type: "stockAdjust", code: product.code, name: product.name, targetQty: qtyValue };
+    payload = { type: "stockAdjust", code: product.code, name: product.name, targetQty: qtyValue };
   }
 
   btn.disabled = true;
