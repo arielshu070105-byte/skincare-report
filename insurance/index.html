@@ -236,13 +236,7 @@
       </div>
       <div id="contractContents" style="display:none">
         <label>送件內容</label>
-        <div class="chip-group" id="contentChips" role="group" aria-label="送件內容">
-          <button type="button" class="chip" data-value="行動投保同意書" aria-pressed="false">行動投保同意書</button>
-          <button type="button" class="chip" data-value="授權書" aria-pressed="false">授權書</button>
-          <button type="button" class="chip" data-value="保單簽收" aria-pressed="false">保單簽收</button>
-          <button type="button" class="chip" data-value="未承保契變書" aria-pressed="false">未承保契變書</button>
-          <button type="button" class="chip" data-value="財務狀況告知書" aria-pressed="false">財務狀況告知書</button>
-        </div>
+        <div class="chip-group" id="contentChips" role="group" aria-label="送件內容"></div>
         <input type="text" id="f-content-other" placeholder="其他…" style="margin-top:8px">
       </div>
       <label for="f-policy">保單號碼</label>
@@ -301,7 +295,10 @@ import {
 const { db, auth } = initFirebase();
 const COLLECTION = "insuranceSubmissions";
 const TYPE_STRIPE = { "新契約": "contract", "理賠": "claim", "契變": "change", "團保": "group" };
-const CONTENT_OPTIONS = ["行動投保同意書", "授權書", "保單簽收", "未承保契變書", "財務狀況告知書"];
+const CONTENT_OPTIONS_BY_TYPE = {
+  "新契約": ["行動投保同意書", "授權書", "保單簽收", "未承保契變書", "財務狀況告知書"],
+  "理賠": ["行動理賠", "診斷證明書", "收據", "X光片"],
+};
 
 let entries = [];
 let unsubscribeList = null;
@@ -319,21 +316,37 @@ window.toggleTheme = function () {
 
 document.getElementById("f-date").value = todayISO();
 document.getElementById("exportMonth").value = todayISO().slice(0, 7);
-document.getElementById("contractContents").style.display = selectedType === "新契約" ? "block" : "none";
 
 const typeChips = document.getElementById("typeChips");
 const contractContents = document.getElementById("contractContents");
+const contentChips = document.getElementById("contentChips");
+const contentOtherInput = document.getElementById("f-content-other");
+
+function renderContentChips(type) {
+  const options = CONTENT_OPTIONS_BY_TYPE[type];
+  selectedContents.clear();
+  contentOtherInput.value = "";
+  if (!options) {
+    contractContents.style.display = "none";
+    contentChips.innerHTML = "";
+    return;
+  }
+  contractContents.style.display = "block";
+  contentChips.innerHTML = options.map((c) =>
+    '<button type="button" class="chip" data-value="' + c + '" aria-pressed="false">' + c + '</button>'
+  ).join("");
+}
+renderContentChips(selectedType);
+
 typeChips.addEventListener("click", (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
   [...typeChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
   btn.setAttribute("aria-pressed", "true");
   selectedType = btn.dataset.value;
-  contractContents.style.display = selectedType === "新契約" ? "block" : "none";
+  renderContentChips(selectedType);
 });
 
-const contentChips = document.getElementById("contentChips");
-const contentOtherInput = document.getElementById("f-content-other");
 contentChips.addEventListener("click", (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
@@ -376,7 +389,7 @@ window.submitEntry = async function () {
     method: document.getElementById("f-method").value,
     status: document.getElementById("f-status").value,
     note: document.getElementById("f-note").value.trim(),
-    contents: selectedType === "新契約" ? buildContentsList(selectedContents, contentOtherInput.value) : [],
+    contents: CONTENT_OPTIONS_BY_TYPE[selectedType] ? buildContentsList(selectedContents, contentOtherInput.value) : [],
     createdAt: serverTimestamp(),
   };
   statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
@@ -391,10 +404,7 @@ window.submitEntry = async function () {
     [...typeChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
     typeChips.children[0].setAttribute("aria-pressed", "true");
     selectedType = "新契約";
-    contractContents.style.display = "block";
-    [...contentChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
-    selectedContents.clear();
-    contentOtherInput.value = "";
+    renderContentChips(selectedType);
     statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
     setTimeout(() => { statusEl.textContent = ""; }, 2500);
   } catch (e) {
@@ -430,7 +440,7 @@ function buildEntryCard(entry) {
   const main = document.createElement("div");
   main.className = "entry-main";
   let typeLabel = entry.type;
-  if (entry.type === "新契約" && entry.contents && entry.contents.length) {
+  if (CONTENT_OPTIONS_BY_TYPE[entry.type] && entry.contents && entry.contents.length) {
     typeLabel += "：" + entry.contents.join("、");
   }
   const sub = [typeLabel];
@@ -452,12 +462,12 @@ function buildEntryCard(entry) {
     '<label>送件方式</label><select class="e-method"></select>' +
     '<label>狀態</label><select class="e-status"></select>' +
     '<label>案件類型</label><select class="e-type"></select>' +
-    (entry.type === "新契約"
+    (CONTENT_OPTIONS_BY_TYPE[entry.type]
       ? (() => {
           const existingOther = (entry.contents || []).find((v) => v.startsWith("其他："));
           const otherText = existingOther ? existingOther.slice(3) : "";
           return '<label>送件內容</label><div class="chip-group e-contents" role="group" aria-label="送件內容">' +
-            CONTENT_OPTIONS.map((c) => '<button type="button" class="chip" data-value="' + escapeHtml(c) + '" aria-pressed="' +
+            CONTENT_OPTIONS_BY_TYPE[entry.type].map((c) => '<button type="button" class="chip" data-value="' + escapeHtml(c) + '" aria-pressed="' +
               ((entry.contents || []).includes(c) ? "true" : "false") + '">' + escapeHtml(c) + '</button>').join("") +
             '</div>' +
             '<input type="text" class="e-content-other" placeholder="其他…" value="' + escapeHtml(otherText) + '" style="margin-top:8px">';
@@ -499,7 +509,7 @@ function buildEntryCard(entry) {
     try {
       const newType = typeSel.value;
       let contents = [];
-      if (newType === "新契約") {
+      if (CONTENT_OPTIONS_BY_TYPE[newType]) {
         contents = [...detail.querySelectorAll(".e-contents .chip")]
           .filter((c) => c.getAttribute("aria-pressed") === "true")
           .map((c) => c.dataset.value);
