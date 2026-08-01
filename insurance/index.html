@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<title>送件日誌</title>
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<link rel="icon" href="../icon-32.png">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<meta name="theme-color" content="#f4f4f5" id="metaThemeColor">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem("charis-theme");
+    var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f4f5;
+    --card-bg: linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(232,232,235,0.55) 100%);
+    --card-border: rgba(0,0,0,0.07);
+    --ink: #1c1c1e;
+    --ink-soft: #8e8e93;
+    --line: rgba(0,0,0,0.08);
+    --input-bg: rgba(255,255,255,0.6);
+    --pill-bg: rgba(0,0,0,0.05);
+    --pill-active-bg: rgba(255,255,255,0.95);
+    --accent: #1c1c1e;
+    --accent-soft: rgba(28,28,30,0.08);
+    --accent-ink: #ffffff;
+    --accent-shadow: rgba(0,0,0,0.22);
+    --overlay-scrim: rgba(0,0,0,0.35);
+    --radius: 26px;
+    --shadow: 0 20px 40px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
+    --danger: #e0796f;
+    --ok: #6fb98f;
+    --blur: blur(20px) saturate(140%);
+    --glow-1: rgba(0,0,0,0.045);
+    --glow-2: rgba(0,0,0,0.03);
+    --glow-3: rgba(0,0,0,0.035);
+    --stamp-grey: #8e8e93; --stamp-grey-bg: rgba(142,142,147,0.14);
+    --stamp-blue: #3f7ab8; --stamp-blue-bg: rgba(63,122,184,0.14);
+    --stamp-amber: #b8863f; --stamp-amber-bg: rgba(184,134,63,0.14);
+    --stamp-red: #c0564a; --stamp-red-bg: rgba(192,86,74,0.14);
+    --stamp-green: #4a9165; --stamp-green-bg: rgba(74,145,101,0.14);
+    --tab-contract: #435a8c; --tab-claim: #93502e; --tab-change: #5f6f34; --tab-group: #74456b;
+  }
+  [data-theme="dark"] {
+    --bg: #0c0c0d;
+    --card-bg: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%);
+    --card-border: rgba(255,255,255,0.1);
+    --ink: #f2f2f3;
+    --ink-soft: #98989d;
+    --line: rgba(255,255,255,0.1);
+    --input-bg: rgba(255,255,255,0.08);
+    --pill-bg: rgba(255,255,255,0.06);
+    --pill-active-bg: rgba(255,255,255,0.16);
+    --accent: #f2f2f3;
+    --accent-soft: rgba(255,255,255,0.12);
+    --accent-ink: #0c0c0d;
+    --accent-shadow: rgba(0,0,0,0.6);
+    --overlay-scrim: rgba(0,0,0,0.55);
+    --shadow: 0 20px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+    --glow-1: rgba(255,255,255,0.06);
+    --glow-2: rgba(255,255,255,0.04);
+    --glow-3: rgba(255,255,255,0.05);
+    --stamp-grey: #a3aebb; --stamp-grey-bg: rgba(163,174,187,0.16);
+    --stamp-blue: #7fb0e0; --stamp-blue-bg: rgba(127,176,224,0.16);
+    --stamp-amber: #dcb24d; --stamp-amber-bg: rgba(220,178,77,0.16);
+    --stamp-red: #e0847a; --stamp-red-bg: rgba(224,132,122,0.16);
+    --stamp-green: #7fc498; --stamp-green-bg: rgba(127,196,152,0.16);
+    --tab-contract: #7f97d1; --tab-claim: #d19067; --tab-change: #a3b56a; --tab-group: #c084b7;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(45% 38% at 15% 0%, var(--glow-1) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(50% 42% at 100% 25%, var(--glow-2) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(55% 45% at 10% 100%, var(--glow-3) 0%, rgba(0,0,0,0) 70%);
+    background-attachment: fixed; background-repeat: no-repeat;
+    color: var(--ink);
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+  #shell { max-width: 480px; margin: 0 auto; padding: 28px 18px 60px; min-height: 100vh; position: relative; }
+  h2 { font-size: 16px; font-weight: 900; margin: 0 0 14px; letter-spacing: 0.04em; color: var(--accent); text-transform: uppercase; }
+  p { line-height: 1.6; color: var(--ink-soft); font-size: 14px; }
+  label { display: block; font-size: 12px; color: var(--ink-soft); margin: 14px 0 6px; letter-spacing: 0.03em; }
+  input, textarea, select {
+    width: 100%; padding: 13px 14px; min-height: 48px; border-radius: 14px; border: 1px solid var(--card-border);
+    font-family: inherit; font-size: 15px; background: var(--input-bg); color: var(--ink);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  }
+  textarea { min-height: 60px; resize: vertical; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  .btn-primary { width: 100%; min-height: 50px; padding: 15px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 15px; margin-top: 18px; letter-spacing: 0.03em; box-shadow: 0 12px 28px var(--accent-shadow); transition: transform 0.1s ease; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-ghost { background: none; color: var(--accent); padding: 10px; font-size: 13px; font-weight: 700; width: 100%; margin-top: 6px; min-height: 40px; }
+  .btn-sm { padding: 8px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 700; }
+  .center-screen { padding: 56px 0 0; }
+  .brand-wordmark { font-size: 24px; font-weight: 900; letter-spacing: 0.06em; color: var(--ink); margin-bottom: 2px; }
+  .brand-subtitle { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+  .theme-switch { width: 44px; height: 24px; border-radius: 999px; background: var(--pill-bg); border: 1px solid var(--card-border); display: flex; align-items: center; justify-content: flex-start; padding: 2px; flex-shrink: 0; transition: background 0.2s ease, justify-content 0.2s ease; }
+  [data-theme="dark"] .theme-switch { justify-content: flex-end; }
+  .theme-switch-knob { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-soft); flex-shrink: 0; box-shadow: 0 0 0 3px rgba(0,0,0,0); }
+  .status-dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(111,185,143,0.7); }
+  .status-msg { font-size: 13px; text-align: center; margin-top: 12px; padding: 10px 14px; border-radius: 999px; display: none; }
+  .status-msg:not(:empty) { display: block; background: var(--input-bg); color: var(--ink-soft); }
+  .status-msg.ok { background: rgba(111,185,143,0.2); color: var(--ok); font-weight: 700; }
+  .status-msg.err { background: rgba(224,121,111,0.16); color: var(--danger); font-weight: 700; }
+  .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 22px 20px; margin-bottom: 18px; box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+
+  .greeting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  .greeting-left { min-width: 0; }
+  .greeting-hello { font-size: 12.5px; color: var(--ink-soft); line-height: 1.3; }
+  .greeting-name { font-size: 19px; font-weight: 900; color: var(--ink); line-height: 1.25; }
+  .greeting-right { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0; }
+  .greeting-right-top { display: flex; align-items: center; gap: 6px; }
+  .header-icon-btn { width: 26px; height: 26px; border-radius: 50%; background: var(--pill-bg); border: 1px solid var(--card-border); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stat-tile { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 12px 10px; text-align: center; box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+  .stat-tile .num { font-size: 22px; font-weight: 900; color: var(--ink); line-height: 1.1; }
+  .stat-tile.warn .num { color: var(--danger); }
+  .stat-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
+
+  .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--card-border); background: var(--input-bg); color: var(--ink-soft); font-size: 13.5px; padding: 8px 14px; border-radius: 999px; }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  .filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-row .chip { white-space: nowrap; flex-shrink: 0; }
+
+  .day-group { margin-bottom: 6px; }
+  .day-head { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 8px; padding: 0 2px; }
+  .day-head:first-child { margin-top: 0; }
+  .day-head .date { font-weight: 900; font-size: 13.5px; color: var(--ink); }
+  .day-head .count { color: var(--ink-soft); font-size: 12px; }
+
+  .entry { border-bottom: 1px solid var(--line); }
+  .entry:last-child { border-bottom: none; }
+  .entry > summary { list-style: none; cursor: pointer; padding: 12px 0; display: flex; align-items: stretch; gap: 10px; }
+  .entry > summary::-webkit-details-marker { display: none; }
+  .tab-stripe { width: 4px; border-radius: 4px; flex-shrink: 0; align-self: stretch; }
+  .tab-stripe.contract { background: var(--tab-contract); }
+  .tab-stripe.claim { background: var(--tab-claim); }
+  .tab-stripe.change { background: var(--tab-change); }
+  .tab-stripe.group { background: var(--tab-group); }
+  .entry-main { flex: 1; min-width: 0; }
+  .entry-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .entry-name { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+  .entry-sub { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--ink-soft); }
+  .stamp { display: inline-block; font-size: 11px; letter-spacing: 0.02em; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .stamp.st-未送件 { color: var(--stamp-grey); background: var(--stamp-grey-bg); }
+  .stamp.st-已送出 { color: var(--stamp-blue); background: var(--stamp-blue-bg); }
+  .stamp.st-審核中 { color: var(--stamp-amber); background: var(--stamp-amber-bg); }
+  .stamp.st-待補件 { color: var(--stamp-red); background: var(--stamp-red-bg); }
+  .stamp.st-已完成 { color: var(--stamp-green); background: var(--stamp-green-bg); }
+  .entry-detail { padding: 0 0 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .detail-actions { display: flex; gap: 10px; margin-top: 4px; }
+  .btn-save, .btn-delete { flex: 1; border-radius: 999px; padding: 11px; font-size: 13.5px; font-weight: 700; }
+  .btn-save { background: var(--accent); color: var(--accent-ink); }
+  .btn-delete { background: rgba(224,121,111,0.14); color: var(--danger); }
+  .empty { text-align: center; color: var(--ink-soft); font-size: 13.5px; padding: 24px 10px; }
+
+  #setupNotice, #loginScreen, #app { display: none; }
+</style>
+</head>
+<body>
+<div id="shell">
+
+  <div id="loginScreen" class="center-screen">
+    <div class="brand-wordmark">CHARIS</div>
+    <div class="brand-subtitle">送件日誌</div>
+    <p>用跟保養品回報一樣的帳號登入</p>
+    <label for="loginEmail">Email</label>
+    <input id="loginEmail" type="email" autocomplete="username">
+    <label for="loginPassword">密碼</label>
+    <input id="loginPassword" type="password" autocomplete="current-password">
+    <button class="btn-primary" onclick="doLogin()">登入</button>
+    <p id="loginStatus" class="status-msg"></p>
+  </div>
+
+  <div id="app">
+    <div class="greeting-row">
+      <div class="greeting-left">
+        <div class="greeting-hello">送件日誌</div>
+        <div class="greeting-name">CHARIS</div>
+      </div>
+      <div class="greeting-right">
+        <div class="greeting-right-top">
+          <button class="header-icon-btn" onclick="doLogout()" title="登出">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          </button>
+          <button class="theme-switch" onclick="toggleTheme()" title="切換深色/淺色主題">
+            <span class="theme-switch-knob" id="themeSwitchKnob"></span>
+          </button>
+        </div>
+        <div class="status-dot ok" title="即時同步中"></div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-tile"><div class="num" id="statToday">0</div><div class="label">今日送件</div></div>
+      <div class="stat-tile warn"><div class="num" id="statPending">0</div><div class="label">待補件</div></div>
+      <div class="stat-tile"><div class="num" id="statMonth">0</div><div class="label">本月累計</div></div>
+    </div>
+
+    <div class="card">
+      <h2>新增送件記錄</h2>
+      <label for="f-date">送件日期</label>
+      <input type="date" id="f-date">
+      <label for="f-name">客戶姓名</label>
+      <input type="text" id="f-name" placeholder="王小明">
+      <label>案件類型</label>
+      <div class="chip-group" id="typeChips" role="group" aria-label="案件類型">
+        <button type="button" class="chip" data-value="新契約" aria-pressed="true">新契約</button>
+        <button type="button" class="chip" data-value="理賠" aria-pressed="false">理賠</button>
+        <button type="button" class="chip" data-value="契變" aria-pressed="false">契變</button>
+        <button type="button" class="chip" data-value="團保" aria-pressed="false">團保</button>
+      </div>
+      <label for="f-policy">保單號碼</label>
+      <input type="text" id="f-policy" placeholder="選填">
+      <label for="f-method">送件方式</label>
+      <select id="f-method">
+        <option>紙本</option>
+        <option>平板</option>
+      </select>
+      <label for="f-status">狀態</label>
+      <select id="f-status">
+        <option>未送件</option>
+        <option>已送出</option>
+        <option>審核中</option>
+        <option>待補件</option>
+        <option>已完成</option>
+      </select>
+      <label for="f-note">備註</label>
+      <textarea id="f-note" placeholder="缺件項目、特殊狀況…"></textarea>
+      <button class="btn-primary" onclick="submitEntry()">送出記錄</button>
+      <p id="addStatus" class="status-msg"></p>
+    </div>
+
+    <div class="card">
+      <h2>送件記錄</h2>
+      <div class="filter-row" id="filterRow" role="group" aria-label="篩選">
+        <button type="button" class="chip" data-filter="all" aria-pressed="true">全部</button>
+        <button type="button" class="chip" data-filter="新契約" aria-pressed="false">新契約</button>
+        <button type="button" class="chip" data-filter="理賠" aria-pressed="false">理賠</button>
+        <button type="button" class="chip" data-filter="契變" aria-pressed="false">契變</button>
+        <button type="button" class="chip" data-filter="團保" aria-pressed="false">團保</button>
+        <button type="button" class="chip" data-filter="待補件" aria-pressed="false">待補件</button>
+        <button type="button" class="chip" data-filter="未送件" aria-pressed="false">未送件</button>
+        <button type="button" class="chip" data-filter="已送出" aria-pressed="false">已送出</button>
+      </div>
+      <input type="text" id="searchBox" placeholder="搜尋客戶姓名…" style="margin-bottom:14px">
+      <div id="list"></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initFirebase } from "./firebase-init.js";
+import { escapeHtml, todayISO } from "./shared.js";
+import {
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {
+  signInWithEmailAndPassword, signOut, onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+const { db, auth } = initFirebase();
+const COLLECTION = "insuranceSubmissions";
+const TYPE_STRIPE = { "新契約": "contract", "理賠": "claim", "契變": "change", "團保": "group" };
+
+let entries = [];
+let unsubscribeList = null;
+let activeFilter = "all";
+let searchTerm = "";
+let selectedType = "新契約";
+
+function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
+window.toggleTheme = function () {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("charis-theme", next); } catch (e) {}
+};
+
+document.getElementById("f-date").value = todayISO();
+
+const typeChips = document.getElementById("typeChips");
+typeChips.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  [...typeChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+  btn.setAttribute("aria-pressed", "true");
+  selectedType = btn.dataset.value;
+});
+
+const filterRow = document.getElementById("filterRow");
+filterRow.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  [...filterRow.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+  btn.setAttribute("aria-pressed", "true");
+  activeFilter = btn.dataset.filter;
+  render();
+});
+
+document.getElementById("searchBox").addEventListener("input", (e) => {
+  searchTerm = e.target.value.trim();
+  render();
+});
+
+window.submitEntry = async function () {
+  const name = document.getElementById("f-name").value.trim();
+  const statusEl = document.getElementById("addStatus");
+  if (!name) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
+  const payload = {
+    date: document.getElementById("f-date").value || todayISO(),
+    name,
+    type: selectedType,
+    policy: document.getElementById("f-policy").value.trim(),
+    method: document.getElementById("f-method").value,
+    status: document.getElementById("f-status").value,
+    note: document.getElementById("f-note").value.trim(),
+    createdAt: serverTimestamp(),
+  };
+  statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
+  try {
+    await addDoc(collection(db, COLLECTION), payload);
+    document.getElementById("f-name").value = "";
+    document.getElementById("f-policy").value = "";
+    document.getElementById("f-note").value = "";
+    document.getElementById("f-date").value = todayISO();
+    document.getElementById("f-method").selectedIndex = 0;
+    document.getElementById("f-status").selectedIndex = 0;
+    [...typeChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+    typeChips.children[0].setAttribute("aria-pressed", "true");
+    selectedType = "新契約";
+    statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
+    setTimeout(() => { statusEl.textContent = ""; }, 2500);
+  } catch (e) {
+    statusEl.textContent = "送出失敗:" + e.message; statusEl.className = "status-msg err";
+  }
+};
+
+function todayPrefix() { return todayISO(); }
+function updateStats() {
+  const today = todayPrefix();
+  const monthPrefix = today.slice(0, 7);
+  document.getElementById("statToday").textContent = entries.filter((e) => e.date === today).length;
+  document.getElementById("statPending").textContent = entries.filter((e) => e.status === "待補件").length;
+  document.getElementById("statMonth").textContent = entries.filter((e) => e.date && e.date.startsWith(monthPrefix)).length;
+}
+
+function matchesFilter(entry) {
+  if (activeFilter === "all") return true;
+  if (["待補件", "未送件", "已送出"].includes(activeFilter)) return entry.status === activeFilter;
+  return entry.type === activeFilter;
+}
+function matchesSearch(entry) {
+  if (!searchTerm) return true;
+  return entry.name.includes(searchTerm);
+}
+
+function buildEntryCard(entry) {
+  const wrap = document.createElement("details");
+  wrap.className = "entry";
+  const summary = document.createElement("summary");
+  const stripe = document.createElement("div");
+  stripe.className = "tab-stripe " + (TYPE_STRIPE[entry.type] || "contract");
+  const main = document.createElement("div");
+  main.className = "entry-main";
+  const sub = [entry.type];
+  if (entry.policy) sub.push(entry.policy);
+  main.innerHTML =
+    '<div class="entry-top"><span class="entry-name">' + escapeHtml(entry.name) + '</span>' +
+    '<span class="stamp st-' + entry.status + '">' + entry.status + "</span></div>" +
+    '<div class="entry-sub">' + sub.map((t) => '<span>' + escapeHtml(t) + '</span>').join("") + "</div>";
+  summary.appendChild(stripe);
+  summary.appendChild(main);
+  wrap.appendChild(summary);
+
+  const detail = document.createElement("div");
+  detail.className = "entry-detail";
+  detail.innerHTML =
+    '<label>送件日期</label><input type="date" class="e-date" value="' + entry.date + '">' +
+    '<label>客戶姓名</label><input type="text" class="e-name" value="' + escapeHtml(entry.name) + '">' +
+    '<label>保單號碼</label><input type="text" class="e-policy" value="' + escapeHtml(entry.policy || "") + '">' +
+    '<label>送件方式</label><select class="e-method"></select>' +
+    '<label>狀態</label><select class="e-status"></select>' +
+    '<label>案件類型</label><select class="e-type"></select>' +
+    '<label>備註</label><textarea class="e-note">' + escapeHtml(entry.note || "") + '</textarea>' +
+    '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
+    '<p class="e-status-msg status-msg"></p>';
+
+  const methodSel = detail.querySelector(".e-method");
+  ["紙本", "平板"].forEach((m) => {
+    const o = document.createElement("option"); o.value = m; o.textContent = m;
+    if (m === entry.method) o.selected = true; methodSel.appendChild(o);
+  });
+  const statusSel = detail.querySelector(".e-status");
+  ["未送件", "已送出", "審核中", "待補件", "已完成"].forEach((s) => {
+    const o = document.createElement("option"); o.value = s; o.textContent = s;
+    if (s === entry.status) o.selected = true; statusSel.appendChild(o);
+  });
+  const typeSel = detail.querySelector(".e-type");
+  ["新契約", "理賠", "契變", "團保"].forEach((t) => {
+    const o = document.createElement("option"); o.value = t; o.textContent = t;
+    if (t === entry.type) o.selected = true; typeSel.appendChild(o);
+  });
+
+  detail.querySelector(".btn-save").addEventListener("click", async () => {
+    const msgEl = detail.querySelector(".e-status-msg");
+    msgEl.textContent = "儲存中…"; msgEl.className = "e-status-msg status-msg";
+    try {
+      await updateDoc(doc(db, COLLECTION, entry.id), {
+        date: detail.querySelector(".e-date").value || entry.date,
+        name: detail.querySelector(".e-name").value.trim() || entry.name,
+        policy: detail.querySelector(".e-policy").value.trim(),
+        method: methodSel.value,
+        status: statusSel.value,
+        type: typeSel.value,
+        note: detail.querySelector(".e-note").value.trim(),
+      });
+      msgEl.textContent = "已儲存"; msgEl.className = "e-status-msg status-msg ok";
+    } catch (e) {
+      msgEl.textContent = "儲存失敗:" + e.message; msgEl.className = "e-status-msg status-msg err";
+    }
+  });
+  detail.querySelector(".btn-delete").addEventListener("click", async () => {
+    if (!confirm("確定要刪除「" + entry.name + "」這筆記錄嗎?")) return;
+    try {
+      await deleteDoc(doc(db, COLLECTION, entry.id));
+    } catch (e) {
+      alert("刪除失敗:" + e.message);
+    }
+  });
+
+  wrap.appendChild(detail);
+  return wrap;
+}
+
+function render() {
+  updateStats();
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  const filtered = entries.filter((e) => matchesFilter(e) && matchesSearch(e));
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = entries.length === 0 ? "還沒有送件記錄,填上面的表單開始登記。" : "沒有符合條件的記錄。";
+    list.appendChild(empty);
+    return;
+  }
+  const byDate = {};
+  filtered.forEach((e) => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  Object.keys(byDate).sort((a, b) => (a < b ? 1 : -1)).forEach((date) => {
+    const group = document.createElement("div");
+    group.className = "day-group";
+    const head = document.createElement("div");
+    head.className = "day-head";
+    head.innerHTML = '<span class="date">' + date + '</span><span class="count">' + byDate[date].length + " 筆</span>";
+    group.appendChild(head);
+    byDate[date].forEach((entry) => group.appendChild(buildEntryCard(entry)));
+    list.appendChild(group);
+  });
+}
+
+function startListening() {
+  if (unsubscribeList) unsubscribeList();
+  const q = query(collection(db, COLLECTION), orderBy("createdAt", "desc"));
+  unsubscribeList = onSnapshot(q, (snap) => {
+    entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render();
+  }, (e) => { console.error(e); });
+}
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    startListening();
+  } else {
+    document.getElementById("app").style.display = "none";
+    document.getElementById("loginScreen").style.display = "block";
+  }
+});
+
+window.doLogin = async function () {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const statusEl = document.getElementById("loginStatus");
+  statusEl.textContent = "登入中…"; statusEl.className = "status-msg";
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    statusEl.textContent = "";
+  } catch (e) {
+    statusEl.textContent = "登入失敗:" + e.message; statusEl.className = "status-msg err";
+  }
+};
+window.doLogout = function () { signOut(auth); };
+</script>
+</body>
+</html>
