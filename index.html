@@ -251,6 +251,7 @@
   .diamond-record-top { display: flex; align-items: center; gap: 6px; }
   .diamond-record-customer { font-weight: 700; font-size: 14.5px; color: var(--ink); }
   .diamond-due-badge { font-size: 13px; }
+  .vip-badge { display: inline-block; background: linear-gradient(135deg, #f0c14b, #d9a02c); color: #3a2a00; font-size: 10px; font-weight: 900; letter-spacing: 0.05em; border-radius: 6px; padding: 2px 6px; margin-right: 6px; vertical-align: middle; }
   .diamond-record-progress { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
   .diamond-record-date { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
   .diamond-record .btn-sm { flex-shrink: 0; }
@@ -1414,7 +1415,7 @@ window.renderCustomerTotals = function renderCustomerTotals() {
   }
   el.innerHTML = customerTotals.map((c) => `
     <div class="stock-record">
-      <div class="stock-record-name">${escapeHtml(c.customer)}</div>
+      <div class="stock-record-name">${c.isVip ? `<span class="vip-badge">VIP</span>` : ""}${escapeHtml(c.customer)}</div>
       <div class="stock-record-qty">${formatCurrency(c.total)}</div>
     </div>
   `).join("");
