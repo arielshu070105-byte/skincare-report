@@ -242,7 +242,9 @@
           <button type="button" class="chip" data-value="保單簽收" aria-pressed="false">保單簽收</button>
           <button type="button" class="chip" data-value="未承保契變書" aria-pressed="false">未承保契變書</button>
           <button type="button" class="chip" data-value="財務狀況告知書" aria-pressed="false">財務狀況告知書</button>
+          <button type="button" class="chip" data-value="其他" aria-pressed="false">其他</button>
         </div>
+        <input type="text" id="f-content-other" placeholder="其他文件名稱…" style="display:none;margin-top:8px">
       </div>
       <label for="f-policy">保單號碼</label>
       <input type="text" id="f-policy" placeholder="選填">
@@ -300,7 +302,7 @@ import {
 const { db, auth } = initFirebase();
 const COLLECTION = "insuranceSubmissions";
 const TYPE_STRIPE = { "新契約": "contract", "理賠": "claim", "契變": "change", "團保": "group" };
-const CONTENT_OPTIONS = ["行動投保同意書", "授權書", "保單簽收", "未承保契變書", "財務狀況告知書"];
+const CONTENT_OPTIONS = ["行動投保同意書", "授權書", "保單簽收", "未承保契變書", "財務狀況告知書", "其他"];
 
 let entries = [];
 let unsubscribeList = null;
@@ -332,6 +334,7 @@ typeChips.addEventListener("click", (e) => {
 });
 
 const contentChips = document.getElementById("contentChips");
+const contentOtherInput = document.getElementById("f-content-other");
 contentChips.addEventListener("click", (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
@@ -339,7 +342,23 @@ contentChips.addEventListener("click", (e) => {
   btn.setAttribute("aria-pressed", pressed ? "false" : "true");
   if (pressed) selectedContents.delete(btn.dataset.value);
   else selectedContents.add(btn.dataset.value);
+  if (btn.dataset.value === "其他") {
+    contentOtherInput.style.display = pressed ? "none" : "block";
+    if (pressed) contentOtherInput.value = "";
+  }
 });
+
+function buildContentsList(selectedSet, otherText) {
+  const list = [];
+  selectedSet.forEach((v) => {
+    if (v === "其他") {
+      if (otherText.trim()) list.push("其他：" + otherText.trim());
+    } else {
+      list.push(v);
+    }
+  });
+  return list;
+}
 
 const filterRow = document.getElementById("filterRow");
 filterRow.addEventListener("click", (e) => {
@@ -368,7 +387,7 @@ window.submitEntry = async function () {
     method: document.getElementById("f-method").value,
     status: document.getElementById("f-status").value,
     note: document.getElementById("f-note").value.trim(),
-    contents: selectedType === "新契約" ? Array.from(selectedContents) : [],
+    contents: selectedType === "新契約" ? buildContentsList(selectedContents, contentOtherInput.value) : [],
     createdAt: serverTimestamp(),
   };
   statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
@@ -386,6 +405,8 @@ window.submitEntry = async function () {
     contractContents.style.display = "block";
     [...contentChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
     selectedContents.clear();
+    contentOtherInput.style.display = "none";
+    contentOtherInput.value = "";
     statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
     setTimeout(() => { statusEl.textContent = ""; }, 2500);
   } catch (e) {
@@ -444,21 +465,35 @@ function buildEntryCard(entry) {
     '<label>狀態</label><select class="e-status"></select>' +
     '<label>案件類型</label><select class="e-type"></select>' +
     (entry.type === "新契約"
-      ? '<label>送件內容</label><div class="chip-group e-contents" role="group" aria-label="送件內容">' +
-        CONTENT_OPTIONS.map((c) => '<button type="button" class="chip" data-value="' + escapeHtml(c) + '" aria-pressed="' +
-          ((entry.contents || []).includes(c) ? "true" : "false") + '">' + escapeHtml(c) + '</button>').join("") +
-        '</div>'
+      ? (() => {
+          const existingOther = (entry.contents || []).find((v) => v === "其他" || v.startsWith("其他："));
+          const otherPressed = !!existingOther;
+          const otherText = existingOther && existingOther.startsWith("其他：") ? existingOther.slice(3) : "";
+          return '<label>送件內容</label><div class="chip-group e-contents" role="group" aria-label="送件內容">' +
+            CONTENT_OPTIONS.map((c) => {
+              const pressed = c === "其他" ? otherPressed : (entry.contents || []).includes(c);
+              return '<button type="button" class="chip" data-value="' + escapeHtml(c) + '" aria-pressed="' + (pressed ? "true" : "false") + '">' + escapeHtml(c) + '</button>';
+            }).join("") +
+            '</div>' +
+            '<input type="text" class="e-content-other" placeholder="其他文件名稱…" value="' + escapeHtml(otherText) + '" style="display:' + (otherPressed ? "block" : "none") + ';margin-top:8px">';
+        })()
       : '') +
     '<label>備註</label><textarea class="e-note">' + escapeHtml(entry.note || "") + '</textarea>' +
     '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
     '<p class="e-status-msg status-msg"></p>';
 
   const eContents = detail.querySelector(".e-contents");
+  const eContentOther = detail.querySelector(".e-content-other");
   if (eContents) {
     eContents.addEventListener("click", (e) => {
       const btn = e.target.closest(".chip");
       if (!btn) return;
-      btn.setAttribute("aria-pressed", btn.getAttribute("aria-pressed") === "true" ? "false" : "true");
+      const pressed = btn.getAttribute("aria-pressed") === "true";
+      btn.setAttribute("aria-pressed", pressed ? "false" : "true");
+      if (btn.dataset.value === "其他" && eContentOther) {
+        eContentOther.style.display = pressed ? "none" : "block";
+        if (pressed) eContentOther.value = "";
+      }
     });
   }
 
@@ -484,7 +519,10 @@ function buildEntryCard(entry) {
     try {
       const newType = typeSel.value;
       const contents = newType === "新契約"
-        ? [...detail.querySelectorAll(".e-contents .chip")].filter((c) => c.getAttribute("aria-pressed") === "true").map((c) => c.dataset.value)
+        ? [...detail.querySelectorAll(".e-contents .chip")]
+            .filter((c) => c.getAttribute("aria-pressed") === "true")
+            .map((c) => c.dataset.value === "其他" ? "其他：" + (eContentOther ? eContentOther.value.trim() : "") : c.dataset.value)
+            .filter((v) => v !== "其他：")
         : [];
       await updateDoc(doc(db, COLLECTION, entry.id), {
         date: detail.querySelector(".e-date").value || entry.date,
