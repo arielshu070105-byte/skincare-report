@@ -234,6 +234,16 @@
         <button type="button" class="chip" data-value="契變" aria-pressed="false">契變</button>
         <button type="button" class="chip" data-value="團保" aria-pressed="false">團保</button>
       </div>
+      <div id="contractContents" style="display:none">
+        <label>送件內容</label>
+        <div class="chip-group" id="contentChips" role="group" aria-label="送件內容">
+          <button type="button" class="chip" data-value="行動投保同意書" aria-pressed="false">行動投保同意書</button>
+          <button type="button" class="chip" data-value="授權書" aria-pressed="false">授權書</button>
+          <button type="button" class="chip" data-value="保單簽收" aria-pressed="false">保單簽收</button>
+          <button type="button" class="chip" data-value="未承保契變書" aria-pressed="false">未承保契變書</button>
+          <button type="button" class="chip" data-value="財務狀況告知書" aria-pressed="false">財務狀況告知書</button>
+        </div>
+      </div>
       <label for="f-policy">保單號碼</label>
       <input type="text" id="f-policy" placeholder="選填">
       <label for="f-method">送件方式</label>
@@ -290,12 +300,14 @@ import {
 const { db, auth } = initFirebase();
 const COLLECTION = "insuranceSubmissions";
 const TYPE_STRIPE = { "新契約": "contract", "理賠": "claim", "契變": "change", "團保": "group" };
+const CONTENT_OPTIONS = ["行動投保同意書", "授權書", "保單簽收", "未承保契變書", "財務狀況告知書"];
 
 let entries = [];
 let unsubscribeList = null;
 let activeFilter = "all";
 let searchTerm = "";
 let selectedType = "新契約";
+let selectedContents = new Set();
 
 function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
 window.toggleTheme = function () {
@@ -306,14 +318,27 @@ window.toggleTheme = function () {
 
 document.getElementById("f-date").value = todayISO();
 document.getElementById("exportMonth").value = todayISO().slice(0, 7);
+document.getElementById("contractContents").style.display = selectedType === "新契約" ? "block" : "none";
 
 const typeChips = document.getElementById("typeChips");
+const contractContents = document.getElementById("contractContents");
 typeChips.addEventListener("click", (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
   [...typeChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
   btn.setAttribute("aria-pressed", "true");
   selectedType = btn.dataset.value;
+  contractContents.style.display = selectedType === "新契約" ? "block" : "none";
+});
+
+const contentChips = document.getElementById("contentChips");
+contentChips.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  const pressed = btn.getAttribute("aria-pressed") === "true";
+  btn.setAttribute("aria-pressed", pressed ? "false" : "true");
+  if (pressed) selectedContents.delete(btn.dataset.value);
+  else selectedContents.add(btn.dataset.value);
 });
 
 const filterRow = document.getElementById("filterRow");
@@ -343,6 +368,7 @@ window.submitEntry = async function () {
     method: document.getElementById("f-method").value,
     status: document.getElementById("f-status").value,
     note: document.getElementById("f-note").value.trim(),
+    contents: selectedType === "新契約" ? Array.from(selectedContents) : [],
     createdAt: serverTimestamp(),
   };
   statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
@@ -357,6 +383,9 @@ window.submitEntry = async function () {
     [...typeChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
     typeChips.children[0].setAttribute("aria-pressed", "true");
     selectedType = "新契約";
+    contractContents.style.display = "block";
+    [...contentChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+    selectedContents.clear();
     statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
     setTimeout(() => { statusEl.textContent = ""; }, 2500);
   } catch (e) {
@@ -393,6 +422,9 @@ function buildEntryCard(entry) {
   main.className = "entry-main";
   const sub = [entry.type];
   if (entry.policy) sub.push(entry.policy);
+  if (entry.type === "新契約" && entry.contents && entry.contents.length) {
+    sub.push("文件 " + entry.contents.length + "/" + CONTENT_OPTIONS.length);
+  }
   main.innerHTML =
     '<div class="entry-top"><span class="entry-name">' + escapeHtml(entry.name) + '</span>' +
     '<span class="stamp st-' + entry.status + '">' + entry.status + "</span></div>" +
@@ -410,9 +442,24 @@ function buildEntryCard(entry) {
     '<label>送件方式</label><select class="e-method"></select>' +
     '<label>狀態</label><select class="e-status"></select>' +
     '<label>案件類型</label><select class="e-type"></select>' +
+    (entry.type === "新契約"
+      ? '<label>送件內容</label><div class="chip-group e-contents" role="group" aria-label="送件內容">' +
+        CONTENT_OPTIONS.map((c) => '<button type="button" class="chip" data-value="' + escapeHtml(c) + '" aria-pressed="' +
+          ((entry.contents || []).includes(c) ? "true" : "false") + '">' + escapeHtml(c) + '</button>').join("") +
+        '</div>'
+      : '') +
     '<label>備註</label><textarea class="e-note">' + escapeHtml(entry.note || "") + '</textarea>' +
     '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
     '<p class="e-status-msg status-msg"></p>';
+
+  const eContents = detail.querySelector(".e-contents");
+  if (eContents) {
+    eContents.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chip");
+      if (!btn) return;
+      btn.setAttribute("aria-pressed", btn.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    });
+  }
 
   const methodSel = detail.querySelector(".e-method");
   ["紙本", "平板"].forEach((m) => {
@@ -434,13 +481,18 @@ function buildEntryCard(entry) {
     const msgEl = detail.querySelector(".e-status-msg");
     msgEl.textContent = "儲存中…"; msgEl.className = "e-status-msg status-msg";
     try {
+      const newType = typeSel.value;
+      const contents = newType === "新契約"
+        ? [...detail.querySelectorAll(".e-contents .chip")].filter((c) => c.getAttribute("aria-pressed") === "true").map((c) => c.dataset.value)
+        : [];
       await updateDoc(doc(db, COLLECTION, entry.id), {
         date: detail.querySelector(".e-date").value || entry.date,
         name: detail.querySelector(".e-name").value.trim() || entry.name,
         policy: detail.querySelector(".e-policy").value.trim(),
         method: methodSel.value,
         status: statusSel.value,
-        type: typeSel.value,
+        type: newType,
+        contents,
         note: detail.querySelector(".e-note").value.trim(),
       });
       msgEl.textContent = "已儲存"; msgEl.className = "e-status-msg status-msg ok";
@@ -533,9 +585,9 @@ window.exportMonth = function () {
   const rows = entries
     .filter((e) => e.date && e.date.startsWith(month))
     .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .map((e) => [e.date, e.name, e.type, e.policy, e.method, e.status, e.note].map(toCsvField).join(","));
+    .map((e) => [e.date, e.name, e.type, e.policy, e.method, e.status, (e.contents || []).join("、"), e.note].map(toCsvField).join(","));
   if (rows.length === 0) { alert(month + " 這個月沒有送件記錄"); return; }
-  const header = ["送件日期", "客戶姓名", "案件類型", "保單號碼", "送件方式", "狀態", "備註"];
+  const header = ["送件日期", "客戶姓名", "案件類型", "保單號碼", "送件方式", "狀態", "送件內容", "備註"];
   const csv = "﻿" + header.join(",") + "\n" + rows.join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
