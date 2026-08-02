@@ -302,8 +302,10 @@
         <button type="button" class="chip" data-value="到府拜訪" aria-pressed="false">到府拜訪</button>
         <button type="button" class="chip" data-value="其他" aria-pressed="false">其他</button>
       </div>
-      <label for="g-gift">禮物內容</label>
-      <input type="text" id="g-gift" placeholder="例如:水果禮盒">
+      <div class="field-row">
+        <div><label for="g-gift">禮物內容</label><input type="text" id="g-gift" placeholder="例如:水果禮盒"></div>
+        <div><label for="g-value">禮物價值</label><input type="number" id="g-value" placeholder="選填" inputmode="numeric"></div>
+      </div>
       <label for="g-note">備註</label>
       <textarea id="g-note" placeholder="選填"></textarea>
       <button class="btn-primary" onclick="submitGift()">送出記錄</button>
@@ -661,6 +663,7 @@ window.submitGift = async function () {
     name,
     occasion: selectedOccasion,
     gift: document.getElementById("g-gift").value.trim(),
+    value: Number(document.getElementById("g-value").value) || 0,
     note: document.getElementById("g-note").value.trim(),
     createdAt: serverTimestamp(),
   };
@@ -669,6 +672,7 @@ window.submitGift = async function () {
     await addDoc(collection(db, GIFT_COLLECTION), payload);
     document.getElementById("g-name").value = "";
     document.getElementById("g-gift").value = "";
+    document.getElementById("g-value").value = "";
     document.getElementById("g-note").value = "";
     document.getElementById("g-date").value = todayISO();
     [...giftOccasionChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
@@ -689,6 +693,7 @@ function buildGiftCard(g) {
   main.className = "entry-main";
   const sub = [g.occasion];
   if (g.gift) sub.push(g.gift);
+  if (g.value) sub.push("NT$ " + g.value.toLocaleString("zh-Hant"));
   main.innerHTML =
     '<div class="entry-top"><span class="entry-name">' + escapeHtml(g.name) + '</span></div>' +
     '<div class="entry-sub">' + sub.map((t) => '<span>' + escapeHtml(t) + '</span>').join("") + "</div>";
@@ -702,6 +707,7 @@ function buildGiftCard(g) {
     '<label>客戶姓名</label><input type="text" class="gd-name" value="' + escapeHtml(g.name) + '">' +
     '<label>情境</label><select class="gd-occasion"></select>' +
     '<label>禮物內容</label><input type="text" class="gd-gift" value="' + escapeHtml(g.gift || "") + '">' +
+    '<label>禮物價值</label><input type="number" class="gd-value" value="' + (g.value || "") + '">' +
     '<label>備註</label><textarea class="gd-note">' + escapeHtml(g.note || "") + '</textarea>' +
     '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
     '<p class="e-status-msg status-msg"></p>';
@@ -721,6 +727,7 @@ function buildGiftCard(g) {
         name: detail.querySelector(".gd-name").value.trim() || g.name,
         occasion: occasionSel.value,
         gift: detail.querySelector(".gd-gift").value.trim(),
+        value: Number(detail.querySelector(".gd-value").value) || 0,
         note: detail.querySelector(".gd-note").value.trim(),
       });
       msgEl.textContent = "已儲存"; msgEl.className = "e-status-msg status-msg ok";
