@@ -173,6 +173,7 @@
   .stamp { display: inline-block; font-size: 11px; letter-spacing: 0.02em; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
   .stamp.st-未送件 { color: var(--stamp-grey); background: var(--stamp-grey-bg); }
   .stamp.st-已送出 { color: var(--stamp-blue); background: var(--stamp-blue-bg); }
+  .stamp.st-已上傳 { color: var(--stamp-amber); background: var(--stamp-amber-bg); }
   .stamp.st-待補件 { color: var(--stamp-red); background: var(--stamp-red-bg); }
   .stamp.st-已完成 { color: var(--stamp-green); background: var(--stamp-green-bg); }
   .entry-detail { padding: 0 0 16px 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -261,6 +262,7 @@
       <select id="f-status">
         <option>未送件</option>
         <option>已送出</option>
+        <option>已上傳</option>
         <option>待補件</option>
         <option>已完成</option>
       </select>
@@ -287,6 +289,7 @@
         <button type="button" class="chip" data-filter="待補件" aria-pressed="false">待補件</button>
         <button type="button" class="chip" data-filter="未送件" aria-pressed="false">未送件</button>
         <button type="button" class="chip" data-filter="已送出" aria-pressed="false">已送出</button>
+        <button type="button" class="chip" data-filter="已上傳" aria-pressed="false">已上傳</button>
       </div>
       <input type="text" id="searchBox" placeholder="搜尋客戶姓名…" style="margin-bottom:14px">
       <div id="list"></div>
@@ -560,7 +563,7 @@ function updateStats() {
 
 function matchesFilter(entry) {
   if (activeFilter === "all") return true;
-  if (["待補件", "未送件", "已送出"].includes(activeFilter)) return entry.status === activeFilter;
+  if (["待補件", "未送件", "已送出", "已上傳"].includes(activeFilter)) return entry.status === activeFilter;
   return entry.type === activeFilter;
 }
 function matchesSearch(entry) {
@@ -630,7 +633,7 @@ function buildEntryCard(entry) {
     if (m === entry.method) o.selected = true; methodSel.appendChild(o);
   });
   const statusSel = detail.querySelector(".e-status");
-  ["未送件", "已送出", "待補件", "已完成"].forEach((s) => {
+  ["未送件", "已送出", "已上傳", "待補件", "已完成"].forEach((s) => {
     const o = document.createElement("option"); o.value = s; o.textContent = s;
     if (s === entry.status) o.selected = true; statusSel.appendChild(o);
   });
