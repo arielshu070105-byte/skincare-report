@@ -279,6 +279,27 @@
       <input type="text" id="searchBox" placeholder="搜尋客戶姓名…" style="margin-bottom:14px">
       <div id="list"></div>
     </div>
+
+    <div class="card">
+      <h2>送禮記錄</h2>
+      <div class="field-row">
+        <div><label for="g-date">日期</label><input type="date" id="g-date"></div>
+        <div><label for="g-name">客戶姓名</label><input type="text" id="g-name" placeholder="王小明"></div>
+      </div>
+      <label>情境</label>
+      <div class="chip-group" id="giftOccasionChips" role="group" aria-label="情境">
+        <button type="button" class="chip" data-value="送保單" aria-pressed="true">送保單</button>
+        <button type="button" class="chip" data-value="到府拜訪" aria-pressed="false">到府拜訪</button>
+        <button type="button" class="chip" data-value="其他" aria-pressed="false">其他</button>
+      </div>
+      <label for="g-gift">禮物內容</label>
+      <input type="text" id="g-gift" placeholder="例如:水果禮盒">
+      <label for="g-note">備註</label>
+      <textarea id="g-note" placeholder="選填"></textarea>
+      <button class="btn-primary" onclick="submitGift()">送出記錄</button>
+      <p id="giftAddStatus" class="status-msg"></p>
+      <div id="giftList" style="margin-top:18px"></div>
+    </div>
   </div>
 
 </div>
@@ -295,6 +316,7 @@ import {
 
 const { db, auth } = initFirebase();
 const COLLECTION = "insuranceSubmissions";
+const GIFT_COLLECTION = "giftLog";
 const TYPE_STRIPE = { "新契約": "contract", "理賠": "claim", "契變": "change", "團保": "group" };
 const CONTENT_OPTIONS_BY_TYPE = {
   "新契約": ["行動投保同意書", "授權書", "保單簽收", "未承保契變書", "財務狀況告知書"],
@@ -309,6 +331,9 @@ let activeFilter = "all";
 let searchTerm = "";
 let selectedType = "新契約";
 let selectedContents = new Set();
+let giftEntries = [];
+let unsubscribeGiftList = null;
+let selectedOccasion = "送保單";
 
 function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
 window.toggleTheme = function () {
@@ -319,6 +344,16 @@ window.toggleTheme = function () {
 
 document.getElementById("f-date").value = todayISO();
 document.getElementById("exportMonth").value = todayISO().slice(0, 7);
+document.getElementById("g-date").value = todayISO();
+
+const giftOccasionChips = document.getElementById("giftOccasionChips");
+giftOccasionChips.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  [...giftOccasionChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+  btn.setAttribute("aria-pressed", "true");
+  selectedOccasion = btn.dataset.value;
+});
 
 const typeChips = document.getElementById("typeChips");
 const contractContents = document.getElementById("contractContents");
@@ -596,11 +631,134 @@ function startListening() {
   }, (e) => { console.error(e); });
 }
 
+window.submitGift = async function () {
+  const name = document.getElementById("g-name").value.trim();
+  const statusEl = document.getElementById("giftAddStatus");
+  if (!name) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
+  const payload = {
+    date: document.getElementById("g-date").value || todayISO(),
+    name,
+    occasion: selectedOccasion,
+    gift: document.getElementById("g-gift").value.trim(),
+    note: document.getElementById("g-note").value.trim(),
+    createdAt: serverTimestamp(),
+  };
+  statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
+  try {
+    await addDoc(collection(db, GIFT_COLLECTION), payload);
+    document.getElementById("g-name").value = "";
+    document.getElementById("g-gift").value = "";
+    document.getElementById("g-note").value = "";
+    document.getElementById("g-date").value = todayISO();
+    [...giftOccasionChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+    giftOccasionChips.children[0].setAttribute("aria-pressed", "true");
+    selectedOccasion = "送保單";
+    statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
+    setTimeout(() => { statusEl.textContent = ""; }, 2500);
+  } catch (e) {
+    statusEl.textContent = "送出失敗:" + e.message; statusEl.className = "status-msg err";
+  }
+};
+
+function buildGiftCard(g) {
+  const wrap = document.createElement("details");
+  wrap.className = "entry";
+  const summary = document.createElement("summary");
+  const main = document.createElement("div");
+  main.className = "entry-main";
+  const sub = [g.occasion];
+  if (g.gift) sub.push(g.gift);
+  main.innerHTML =
+    '<div class="entry-top"><span class="entry-name">' + escapeHtml(g.name) + '</span></div>' +
+    '<div class="entry-sub">' + sub.map((t) => '<span>' + escapeHtml(t) + '</span>').join("") + "</div>";
+  summary.appendChild(main);
+  wrap.appendChild(summary);
+
+  const detail = document.createElement("div");
+  detail.className = "entry-detail";
+  detail.innerHTML =
+    '<label>日期</label><input type="date" class="gd-date" value="' + g.date + '">' +
+    '<label>客戶姓名</label><input type="text" class="gd-name" value="' + escapeHtml(g.name) + '">' +
+    '<label>情境</label><select class="gd-occasion"></select>' +
+    '<label>禮物內容</label><input type="text" class="gd-gift" value="' + escapeHtml(g.gift || "") + '">' +
+    '<label>備註</label><textarea class="gd-note">' + escapeHtml(g.note || "") + '</textarea>' +
+    '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
+    '<p class="e-status-msg status-msg"></p>';
+
+  const occasionSel = detail.querySelector(".gd-occasion");
+  ["送保單", "到府拜訪", "其他"].forEach((o) => {
+    const opt = document.createElement("option"); opt.value = o; opt.textContent = o;
+    if (o === g.occasion) opt.selected = true; occasionSel.appendChild(opt);
+  });
+
+  detail.querySelector(".btn-save").addEventListener("click", async () => {
+    const msgEl = detail.querySelector(".e-status-msg");
+    msgEl.textContent = "儲存中…"; msgEl.className = "e-status-msg status-msg";
+    try {
+      await updateDoc(doc(db, GIFT_COLLECTION, g.id), {
+        date: detail.querySelector(".gd-date").value || g.date,
+        name: detail.querySelector(".gd-name").value.trim() || g.name,
+        occasion: occasionSel.value,
+        gift: detail.querySelector(".gd-gift").value.trim(),
+        note: detail.querySelector(".gd-note").value.trim(),
+      });
+      msgEl.textContent = "已儲存"; msgEl.className = "e-status-msg status-msg ok";
+    } catch (e) {
+      msgEl.textContent = "儲存失敗:" + e.message; msgEl.className = "e-status-msg status-msg err";
+    }
+  });
+  detail.querySelector(".btn-delete").addEventListener("click", async () => {
+    if (!confirm("確定要刪除「" + g.name + "」這筆送禮記錄嗎?")) return;
+    try {
+      await deleteDoc(doc(db, GIFT_COLLECTION, g.id));
+    } catch (e) {
+      alert("刪除失敗:" + e.message);
+    }
+  });
+
+  wrap.appendChild(detail);
+  return wrap;
+}
+
+function renderGifts() {
+  const list = document.getElementById("giftList");
+  list.innerHTML = "";
+  if (giftEntries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "還沒有送禮記錄。";
+    list.appendChild(empty);
+    return;
+  }
+  const byDate = {};
+  giftEntries.forEach((g) => { (byDate[g.date] = byDate[g.date] || []).push(g); });
+  Object.keys(byDate).sort((a, b) => (a < b ? 1 : -1)).forEach((date) => {
+    const group = document.createElement("div");
+    group.className = "day-group";
+    const head = document.createElement("div");
+    head.className = "day-head";
+    head.innerHTML = '<span class="date">' + date + '</span><span class="count">' + byDate[date].length + " 筆</span>";
+    group.appendChild(head);
+    byDate[date].forEach((g) => group.appendChild(buildGiftCard(g)));
+    list.appendChild(group);
+  });
+}
+
+function startListeningGifts() {
+  if (unsubscribeGiftList) unsubscribeGiftList();
+  const q = query(collection(db, GIFT_COLLECTION), orderBy("createdAt", "desc"));
+  unsubscribeGiftList = onSnapshot(q, (snap) => {
+    giftEntries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderGifts();
+  }, (e) => { console.error(e); });
+}
+
 onAuthStateChanged(auth, (user) => {
   if (user) {
     document.getElementById("loginScreen").style.display = "none";
     document.getElementById("app").style.display = "block";
     startListening();
+    startListeningGifts();
   } else {
     document.getElementById("app").style.display = "none";
     document.getElementById("loginScreen").style.display = "block";
