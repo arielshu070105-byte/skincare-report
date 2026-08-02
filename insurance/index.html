@@ -133,6 +133,7 @@
 
   .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
   .stat-tile { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 12px 10px; text-align: center; box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+  .stat-tile[role="button"] { cursor: pointer; }
   .stat-tile .num { font-size: 22px; font-weight: 900; color: var(--ink); line-height: 1.1; }
   .stat-tile.warn .num { color: var(--danger); }
   .stat-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
@@ -217,7 +218,7 @@
 
     <div class="stats-row">
       <div class="stat-tile"><div class="num" id="statToday">0</div><div class="label">今日送件</div></div>
-      <div class="stat-tile warn"><div class="num" id="statPending">0</div><div class="label">待補件</div></div>
+      <div class="stat-tile warn" id="statPendingTile" onclick="filterByStatus('未送件')" role="button" tabindex="0"><div class="num" id="statPending">0</div><div class="label">未送件</div></div>
       <div class="stat-tile"><div class="num" id="statMonth">0</div><div class="label">本月累計</div></div>
     </div>
 
@@ -374,6 +375,20 @@ filterRow.addEventListener("click", (e) => {
   render();
 });
 
+document.getElementById("statPendingTile").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.filterByStatus("未送件"); }
+});
+
+window.filterByStatus = function (status) {
+  const btn = [...filterRow.children].find((c) => c.dataset.filter === status);
+  if (!btn) return;
+  [...filterRow.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+  btn.setAttribute("aria-pressed", "true");
+  activeFilter = status;
+  render();
+  document.getElementById("list").scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
 document.getElementById("searchBox").addEventListener("input", (e) => {
   searchTerm = e.target.value.trim();
   render();
@@ -419,7 +434,7 @@ function updateStats() {
   const today = todayPrefix();
   const monthPrefix = today.slice(0, 7);
   document.getElementById("statToday").textContent = entries.filter((e) => e.date === today).length;
-  document.getElementById("statPending").textContent = entries.filter((e) => e.status === "待補件").length;
+  document.getElementById("statPending").textContent = entries.filter((e) => e.status === "未送件").length;
   document.getElementById("statMonth").textContent = entries.filter((e) => e.date && e.date.startsWith(monthPrefix)).length;
 }
 
