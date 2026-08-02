@@ -141,8 +141,9 @@
   .stat-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
 
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .export-row { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
-  .export-row input[type="month"] { flex: 1; margin: 0; min-height: 44px; }
+  .export-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .export-row input[type="month"] { flex: 1; min-width: 120px; margin: 0; min-height: 44px; }
+  .export-row .export-range-sep { color: var(--ink-soft); font-size: 13px; flex-shrink: 0; }
   .export-row button { flex-shrink: 0; white-space: nowrap; min-height: 44px; }
   .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { border: 1px solid var(--card-border); background: var(--input-bg); color: var(--ink-soft); font-size: 13.5px; padding: 8px 14px; border-radius: 999px; }
@@ -271,7 +272,9 @@
     <div class="card">
       <h2>送件記錄</h2>
       <div class="export-row">
-        <input type="month" id="exportMonth">
+        <input type="month" id="exportMonthFrom">
+        <span class="export-range-sep">至</span>
+        <input type="month" id="exportMonthTo">
         <button type="button" class="btn-sm" onclick="exportMonth()">匯出 Excel</button>
       </div>
       <div class="filter-row" id="filterRow" role="group" aria-label="篩選">
@@ -310,7 +313,13 @@
       <textarea id="g-note" placeholder="選填"></textarea>
       <button class="btn-primary" onclick="submitGift()">送出記錄</button>
       <p id="giftAddStatus" class="status-msg"></p>
-      <div id="giftList" style="margin-top:18px"></div>
+      <div class="export-row" style="margin-top:18px">
+        <input type="month" id="giftExportMonthFrom">
+        <span class="export-range-sep">至</span>
+        <input type="month" id="giftExportMonthTo">
+        <button type="button" class="btn-sm" onclick="exportGiftMonth()">匯出 Excel</button>
+      </div>
+      <div id="giftList"></div>
     </div>
     </div>
   </div>
@@ -356,8 +365,11 @@ window.toggleTheme = function () {
 };
 
 document.getElementById("f-date").value = todayISO();
-document.getElementById("exportMonth").value = todayISO().slice(0, 7);
+document.getElementById("exportMonthFrom").value = todayISO().slice(0, 7);
+document.getElementById("exportMonthTo").value = todayISO().slice(0, 7);
 document.getElementById("g-date").value = todayISO();
+document.getElementById("giftExportMonthFrom").value = todayISO().slice(0, 7);
+document.getElementById("giftExportMonthTo").value = todayISO().slice(0, 7);
 
 const pageTabs = document.getElementById("pageTabs");
 pageTabs.addEventListener("click", (e) => {
@@ -813,25 +825,55 @@ function toCsvField(v) {
   return s;
 }
 
-window.exportMonth = function () {
-  const month = document.getElementById("exportMonth").value;
-  if (!month) { alert("請先選擇要匯出的月份"); return; }
-  const rows = entries
-    .filter((e) => e.date && e.date.startsWith(month))
-    .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .map((e) => [e.date, e.name, e.type, e.policy, e.method, e.status, (e.contents || []).join("、"), e.note].map(toCsvField).join(","));
-  if (rows.length === 0) { alert(month + " 這個月沒有送件記錄"); return; }
-  const header = ["送件日期", "客戶姓名", "案件類型", "保單號碼", "送件方式", "狀態", "送件內容", "備註"];
-  const csv = "﻿" + header.join(",") + "\n" + rows.join("\n");
+function inMonthRange(dateStr, from, to) {
+  if (!dateStr) return false;
+  const m = dateStr.slice(0, 7);
+  return m >= from && m <= to;
+}
+
+function downloadCsv(filename, header, rows) {
+  const csv = "﻿" + header.join(",") + "\n" + rows.map((r) => r.map(toCsvField).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "送件日誌_" + month + ".csv";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function getMonthRange(fromId, toId) {
+  const from = document.getElementById(fromId).value;
+  const to = document.getElementById(toId).value;
+  if (!from || !to) { alert("請先選擇起訖月份"); return null; }
+  if (from > to) { alert("起始月份不能晚於結束月份"); return null; }
+  return { from, to };
+}
+
+window.exportMonth = function () {
+  const range = getMonthRange("exportMonthFrom", "exportMonthTo");
+  if (!range) return;
+  const rows = entries
+    .filter((e) => inMonthRange(e.date, range.from, range.to))
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .map((e) => [e.date, e.name, e.type, e.policy, e.method, e.status, (e.contents || []).join("、"), e.note]);
+  if (rows.length === 0) { alert(range.from + " ~ " + range.to + " 這段期間沒有送件記錄"); return; }
+  const header = ["送件日期", "客戶姓名", "案件類型", "保單號碼", "送件方式", "狀態", "送件內容", "備註"];
+  downloadCsv("送件日誌_" + range.from + "_" + range.to + ".csv", header, rows);
+};
+
+window.exportGiftMonth = function () {
+  const range = getMonthRange("giftExportMonthFrom", "giftExportMonthTo");
+  if (!range) return;
+  const rows = giftEntries
+    .filter((g) => inMonthRange(g.date, range.from, range.to))
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .map((g) => [g.date, g.name, g.occasion, g.gift, g.value || "", g.note]);
+  if (rows.length === 0) { alert(range.from + " ~ " + range.to + " 這段期間沒有送禮記錄"); return; }
+  const header = ["日期", "客戶姓名", "情境", "禮物內容", "禮物價值", "備註"];
+  downloadCsv("送禮記錄_" + range.from + "_" + range.to + ".csv", header, rows);
 };
 </script>
 </body>
