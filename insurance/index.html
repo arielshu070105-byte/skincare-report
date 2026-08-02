@@ -333,7 +333,7 @@
       </div>
       <label>項目</label>
       <div class="chip-group" id="calendarItemChips" role="group" aria-label="項目">
-        <button type="button" class="chip" data-value="年曆" aria-pressed="true">年曆</button>
+        <button type="button" class="chip" data-value="年曆" aria-pressed="false">年曆</button>
         <button type="button" class="chip" data-value="桌曆" aria-pressed="false">桌曆</button>
         <button type="button" class="chip" data-value="小本子" aria-pressed="false">小本子</button>
         <button type="button" class="chip" data-value="中式桌曆" aria-pressed="false">中式桌曆</button>
@@ -390,7 +390,7 @@ let unsubscribeGiftList = null;
 let selectedOccasion = "送保單";
 let calendarEntries = [];
 let unsubscribeCalendarList = null;
-let selectedCalendarItem = "年曆";
+let selectedCalendarItems = new Set();
 
 function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
 window.toggleTheme = function () {
@@ -433,9 +433,10 @@ const calendarItemChips = document.getElementById("calendarItemChips");
 calendarItemChips.addEventListener("click", (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
-  [...calendarItemChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
-  btn.setAttribute("aria-pressed", "true");
-  selectedCalendarItem = btn.dataset.value;
+  const pressed = btn.getAttribute("aria-pressed") === "true";
+  btn.setAttribute("aria-pressed", pressed ? "false" : "true");
+  if (pressed) selectedCalendarItems.delete(btn.dataset.value);
+  else selectedCalendarItems.add(btn.dataset.value);
 });
 
 const typeChips = document.getElementById("typeChips");
@@ -845,10 +846,11 @@ window.submitCalendar = async function () {
   const name = document.getElementById("c-name").value.trim();
   const statusEl = document.getElementById("calendarAddStatus");
   if (!name) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
+  if (selectedCalendarItems.size === 0) { statusEl.textContent = "請至少選一個項目"; statusEl.className = "status-msg err"; return; }
   const payload = {
     date: document.getElementById("c-date").value || todayISO(),
     name,
-    item: selectedCalendarItem,
+    items: Array.from(selectedCalendarItems),
     note: document.getElementById("c-note").value.trim(),
     createdAt: serverTimestamp(),
   };
@@ -859,14 +861,17 @@ window.submitCalendar = async function () {
     document.getElementById("c-note").value = "";
     document.getElementById("c-date").value = todayISO();
     [...calendarItemChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
-    calendarItemChips.children[0].setAttribute("aria-pressed", "true");
-    selectedCalendarItem = "年曆";
+    selectedCalendarItems.clear();
     statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
     setTimeout(() => { statusEl.textContent = ""; }, 2500);
   } catch (e) {
     statusEl.textContent = "送出失敗:" + e.message; statusEl.className = "status-msg err";
   }
 };
+
+function getCalendarItems(c) {
+  return c.items || (c.item ? [c.item] : []);
+}
 
 function buildCalendarCard(c) {
   const wrap = document.createElement("details");
@@ -876,7 +881,7 @@ function buildCalendarCard(c) {
   main.className = "entry-main";
   main.innerHTML =
     '<div class="entry-top"><span class="entry-name">' + escapeHtml(c.name) + '</span></div>' +
-    '<div class="entry-sub"><span>' + escapeHtml(c.item) + '</span></div>';
+    '<div class="entry-sub"><span>' + escapeHtml(getCalendarItems(c).join("、")) + '</span></div>';
   summary.appendChild(main);
   wrap.appendChild(summary);
 
@@ -885,25 +890,31 @@ function buildCalendarCard(c) {
   detail.innerHTML =
     '<label>日期</label><input type="date" class="cd-date" value="' + c.date + '">' +
     '<label>客戶姓名</label><input type="text" class="cd-name" value="' + escapeHtml(c.name) + '">' +
-    '<label>項目</label><select class="cd-item"></select>' +
+    '<label>項目</label><div class="chip-group cd-items" role="group" aria-label="項目">' +
+      CALENDAR_ITEMS.map((i) => '<button type="button" class="chip" data-value="' + i + '" aria-pressed="' +
+        (getCalendarItems(c).includes(i) ? "true" : "false") + '">' + i + '</button>').join("") +
+    '</div>' +
     '<label>備註</label><textarea class="cd-note">' + escapeHtml(c.note || "") + '</textarea>' +
     '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
     '<p class="e-status-msg status-msg"></p>';
 
-  const itemSel = detail.querySelector(".cd-item");
-  CALENDAR_ITEMS.forEach((i) => {
-    const opt = document.createElement("option"); opt.value = i; opt.textContent = i;
-    if (i === c.item) opt.selected = true; itemSel.appendChild(opt);
+  const cdItems = detail.querySelector(".cd-items");
+  cdItems.addEventListener("click", (e) => {
+    const btn = e.target.closest(".chip");
+    if (!btn) return;
+    btn.setAttribute("aria-pressed", btn.getAttribute("aria-pressed") === "true" ? "false" : "true");
   });
 
   detail.querySelector(".btn-save").addEventListener("click", async () => {
     const msgEl = detail.querySelector(".e-status-msg");
+    const items = [...cdItems.querySelectorAll(".chip")].filter((c2) => c2.getAttribute("aria-pressed") === "true").map((c2) => c2.dataset.value);
+    if (items.length === 0) { msgEl.textContent = "請至少選一個項目"; msgEl.className = "e-status-msg status-msg err"; return; }
     msgEl.textContent = "儲存中…"; msgEl.className = "e-status-msg status-msg";
     try {
       await updateDoc(doc(db, CALENDAR_COLLECTION, c.id), {
         date: detail.querySelector(".cd-date").value || c.date,
         name: detail.querySelector(".cd-name").value.trim() || c.name,
-        item: itemSel.value,
+        items,
         note: detail.querySelector(".cd-note").value.trim(),
       });
       msgEl.textContent = "已儲存"; msgEl.className = "e-status-msg status-msg ok";
@@ -1047,7 +1058,7 @@ window.exportCalendarMonth = function () {
   const rows = calendarEntries
     .filter((c) => inMonthRange(c.date, range.from, range.to))
     .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .map((c) => [c.date, c.name, c.item, c.note]);
+    .map((c) => [c.date, c.name, getCalendarItems(c).join("、"), c.note]);
   if (rows.length === 0) { alert(range.from + " ~ " + range.to + " 這段期間沒有記錄"); return; }
   const header = ["日期", "客戶姓名", "項目", "備註"];
   downloadCsv("年曆_" + range.from + "_" + range.to + ".csv", header, rows);
