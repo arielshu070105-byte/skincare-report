@@ -325,6 +325,7 @@
     </div>
 
     <div class="tab-view" id="tabCalendar">
+    <div class="stats-row" id="calendarStatsRow"></div>
     <div class="card">
       <h2>年曆</h2>
       <div class="field-row">
@@ -935,7 +936,16 @@ function buildCalendarCard(c) {
   return wrap;
 }
 
+function renderCalendarStats() {
+  const row = document.getElementById("calendarStatsRow");
+  row.innerHTML = CALENDAR_ITEMS.map((item) => {
+    const count = calendarEntries.filter((c) => getCalendarItems(c).includes(item)).length;
+    return '<div class="stat-tile"><div class="num">' + count + '</div><div class="label">' + item + '</div></div>';
+  }).join("");
+}
+
 function renderCalendarList() {
+  renderCalendarStats();
   const list = document.getElementById("calendarList");
   list.innerHTML = "";
   if (calendarEntries.length === 0) {
