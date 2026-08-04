@@ -339,7 +339,7 @@
         <h2>登記銷售</h2>
         <div id="editingBanner"></div>
         <label for="saleCustomer">客戶姓名</label>
-        <input id="saleCustomer">
+        <input id="saleCustomer" oninput="updateSaleTotal()">
         <label>商品明細</label>
         <div id="saleLines"></div>
         <button class="btn-ghost" onclick="addSaleLine()">+ 加一項商品</button>
@@ -486,7 +486,7 @@
 <script type="module">
 import { initFirebase, loadConfig, saveConfig, parseConfigInput } from "./firebase-init.js?v=2";
 import { escapeHtml, formatCurrency, todayISO, uid } from "./shared.js?v=2";
-import { PRODUCTS } from "./products-seed.js?v=4";
+import { PRODUCTS } from "./products-seed.js?v=5";
 import { COMBOS } from "./combos-seed.js?v=3";
 
 // 10件組是真的手動組裝的成品(裡面含1+2面膜這個子成品)。1+2面膜、4+5+6平常是直接跟
@@ -1052,6 +1052,20 @@ window.removeSaleLine = function (id) {
   updateSaleTotal();
 };
 
+// 韓國訂單有幾項商品VIP客戶跟一般客戶價格不一樣(products-seed.js裡有vipPrice的那些),
+// 依「客戶姓名」目前填的名字對照客戶統計裡的VIP標記來決定要用哪個價,查不到人就當一般客戶
+function isCurrentCustomerVip() {
+  const name = document.getElementById("saleCustomer").value.trim();
+  if (!name) return false;
+  const c = customerTotals.find((ct) => ct.customer === name);
+  return !!(c && c.isVip);
+}
+
+function getEffectivePrice(item) {
+  if (item.vipPrice && isCurrentCustomerVip()) return item.vipPrice;
+  return item.price;
+}
+
 function getSaleLines() {
   const lines = [];
   document.querySelectorAll("#saleLines .line-item").forEach((el) => {
@@ -1061,14 +1075,17 @@ function getSaleLines() {
     const combo = !product ? COMBOS.find((c) => c.code === code) : null;
     const item = product || combo;
     if (item && qty > 0) {
+      const unitPrice = getEffectivePrice(item);
       lines.push({
-        code: item.code, name: item.name, qty, unitPrice: item.price,
+        code: item.code, name: item.name, qty, unitPrice,
         isCombo: !!combo, components: combo ? combo.components : null,
       });
     }
     const subtotalEl = el.querySelector('[data-role="subtotal"]');
     if (item && qty > 0) {
-      subtotalEl.textContent = `${qty} × ${formatCurrency(item.price)} = ${formatCurrency(qty * item.price)}`;
+      const unitPrice = getEffectivePrice(item);
+      const vipTag = (item.vipPrice && unitPrice === item.vipPrice) ? "(VIP價)" : "";
+      subtotalEl.textContent = `${qty} × ${formatCurrency(unitPrice)}${vipTag} = ${formatCurrency(qty * unitPrice)}`;
     } else {
       subtotalEl.textContent = "";
     }
