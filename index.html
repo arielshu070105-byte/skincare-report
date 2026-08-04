@@ -344,6 +344,8 @@
         <div id="saleLines"></div>
         <button class="btn-ghost" onclick="addSaleLine()">+ 加一項商品</button>
         <div class="total-row"><span>總計</span><span id="saleTotal">NT$ 0</span></div>
+        <label for="saleActualTotal">實收金額(收現金有尾差才需要填,留空就用上面總計)</label>
+        <input id="saleActualTotal" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="留空 = 上面總計">
         <button class="btn-primary" id="saleSubmitBtn" onclick="submitSale()">送出銷售紀錄</button>
         <p id="saleStatus" class="status-msg"></p>
       </div>
@@ -1168,6 +1170,7 @@ window.cancelEditSale = function () {
   document.getElementById("editingBanner").innerHTML = "";
   document.getElementById("saleCustomer").value = "";
   document.getElementById("saleLines").innerHTML = "";
+  document.getElementById("saleActualTotal").value = "";
   saleLineCount = 0;
   addSaleLine();
   updateSaleTotal();
@@ -1197,6 +1200,22 @@ window.submitSale = async function () {
   if (previewMode) { statusEl.textContent = "預覽模式,不會真的送出"; statusEl.className = "status-msg"; return; }
   if (!customer) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
   if (lines.length === 0) { statusEl.textContent = "請至少選一項商品"; statusEl.className = "status-msg err"; return; }
+
+  // 收現金常常會抹掉尾數,實收金額跟商品明細算出來的總計不一樣時,加一筆「尾差」項目
+  // 把差額補上,這樣Excel記錄的才是真正收到的錢,又不影響任何商品的庫存跟RV計算
+  // (尾差不是商品代號,對不到「商品」表任何一列,SUMIF/RV對照都會自然跳過)
+  const actualInput = document.getElementById("saleActualTotal").value.trim();
+  const items = [...lines];
+  if (actualInput) {
+    const actualTotal = Number(actualInput);
+    if (!Number.isFinite(actualTotal)) { statusEl.textContent = "實收金額格式不對"; statusEl.className = "status-msg err"; return; }
+    const computedTotal = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
+    const diff = actualTotal - computedTotal;
+    if (diff !== 0) {
+      items.push({ code: "尾差", name: "尾差", qty: 1, unitPrice: diff, isCombo: false, components: null });
+    }
+  }
+
   btn.disabled = true;
   statusEl.textContent = "送出中…";
   statusEl.className = "status-msg";
@@ -1207,7 +1226,7 @@ window.submitSale = async function () {
         type: "editSale",
         saleId: editingSaleId,
         customer,
-        items: lines,
+        items,
         date: todayISO(),
         createdAt: serverTimestamp(),
         synced: false,
@@ -1218,7 +1237,7 @@ window.submitSale = async function () {
       docRef = await addDoc(collection(db, "pendingActions"), {
         type: "sale",
         customer,
-        items: lines,
+        items,
         date: todayISO(),
         createdAt: serverTimestamp(),
         synced: false,
