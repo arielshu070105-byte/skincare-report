@@ -20,7 +20,7 @@ export const PRODUCTS = [
   { code: "洗臉巾", name: "洗臉巾", price: 50 },
   { code: "1號面膜", name: "水潤去角質面膜(200ml)", price: 1711 },
   { code: "2號面膜", name: "水潤滋養面膜(200ml)", price: 1711 },
-  { code: "小水", name: "小瓶化妝水", price: 150 },
+  { code: "小水", name: "小瓶化妝水", price: 300 },
   { code: "小藍", name: "小瓶活顏噴霧", price: 150 },
   { code: "CPR", name: "CPR", price: 5380, vipPrice: 5110 },
   { code: "緊緻安瓶", name: "緊緻安瓶", price: 5390, vipPrice: 5110 },
