@@ -191,6 +191,10 @@
   .quota-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
   .quota-edit-grid label { font-size: 12.5px; margin: 0 0 4px; }
   .quota-edit-grid input { min-height: 42px; }
+  .reimburse-line { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .reimburse-line select { flex: 2; margin: 0; }
+  .reimburse-line input { flex: 1; margin: 0; }
+  .reimburse-line .remove-line-btn { flex-shrink: 0; width: 40px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--danger); display: flex; align-items: center; justify-content: center; font-size: 16px; }
 
   #setupNotice, #loginScreen, #app { display: none; }
 </style>
@@ -382,12 +386,11 @@
 
     <div class="card">
       <h2>新增核銷記錄</h2>
-      <div class="field-row">
-        <div><label for="r-date">日期</label><input type="date" id="r-date"></div>
-        <div><label for="r-amount">金額</label><input type="number" id="r-amount" inputmode="numeric"></div>
-      </div>
-      <label>項目</label>
-      <div class="chip-group" id="reimburseCategoryChips" role="group" aria-label="項目"></div>
+      <label for="r-date">日期</label>
+      <input type="date" id="r-date">
+      <label>核銷項目</label>
+      <div id="reimburseLines"></div>
+      <button type="button" class="btn-ghost" onclick="addReimburseLine()">+ 加一項</button>
       <label for="r-note">備註</label>
       <textarea id="r-note" placeholder="選填"></textarea>
       <button class="btn-primary" onclick="submitReimburse()">送出記錄</button>
@@ -457,7 +460,6 @@ let unsubscribeCalendarList = null;
 let selectedCalendarItems = new Set();
 let reimburseEntries = [];
 let unsubscribeReimburseList = null;
-let selectedReimburseCategory = REIMBURSE_CATEGORIES[0].code;
 let quotas = {};
 
 function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
@@ -482,17 +484,24 @@ document.getElementById("reimburseExportMonthTo").value = todayISO().slice(0, 7)
 document.getElementById("quotaSummaryMonth").value = todayISO().slice(0, 7);
 document.getElementById("quotaSummaryMonth").addEventListener("change", renderQuotaSummary);
 
-const reimburseCategoryChips = document.getElementById("reimburseCategoryChips");
-reimburseCategoryChips.innerHTML = REIMBURSE_CATEGORIES.map((cat, i) =>
-  '<button type="button" class="chip" data-value="' + cat.code + '" aria-pressed="' + (i === 0 ? "true" : "false") + '">' + cat.code + " " + cat.name + '</button>'
-).join("");
-reimburseCategoryChips.addEventListener("click", (e) => {
-  const btn = e.target.closest(".chip");
-  if (!btn) return;
-  [...reimburseCategoryChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
-  btn.setAttribute("aria-pressed", "true");
-  selectedReimburseCategory = btn.dataset.value;
-});
+const reimburseLines = document.getElementById("reimburseLines");
+window.addReimburseLine = function () {
+  const row = document.createElement("div");
+  row.className = "reimburse-line";
+  row.innerHTML =
+    '<select class="rl-category"></select>' +
+    '<input type="number" class="rl-amount" placeholder="金額" inputmode="numeric">' +
+    '<button type="button" class="remove-line-btn" onclick="this.closest(\'.reimburse-line\').remove()">×</button>';
+  const sel = row.querySelector(".rl-category");
+  REIMBURSE_CATEGORIES.forEach((cat) => {
+    const opt = document.createElement("option");
+    opt.value = cat.code;
+    opt.textContent = cat.code + " " + cat.name;
+    sel.appendChild(opt);
+  });
+  reimburseLines.appendChild(row);
+};
+addReimburseLine();
 
 const pageTabs = document.getElementById("pageTabs");
 pageTabs.addEventListener("click", (e) => {
@@ -1093,23 +1102,23 @@ function renderQuotaSummary() {
 }
 
 window.submitReimburse = async function () {
-  const amount = Number(document.getElementById("r-amount").value);
   const statusEl = document.getElementById("reimburseAddStatus");
-  if (!amount) { statusEl.textContent = "請填金額"; statusEl.className = "status-msg err"; return; }
-  const payload = {
-    date: document.getElementById("r-date").value || todayISO(),
-    category: selectedReimburseCategory,
-    amount,
-    note: document.getElementById("r-note").value.trim(),
-    createdAt: serverTimestamp(),
-  };
+  const date = document.getElementById("r-date").value || todayISO();
+  const note = document.getElementById("r-note").value.trim();
+  const lines = [...reimburseLines.querySelectorAll(".reimburse-line")]
+    .map((row) => ({ category: row.querySelector(".rl-category").value, amount: Number(row.querySelector(".rl-amount").value) }))
+    .filter((l) => l.amount > 0);
+  if (lines.length === 0) { statusEl.textContent = "請至少填一項金額"; statusEl.className = "status-msg err"; return; }
   statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
   try {
-    await addDoc(collection(db, REIMBURSE_COLLECTION), payload);
-    document.getElementById("r-amount").value = "";
+    await Promise.all(lines.map((l) => addDoc(collection(db, REIMBURSE_COLLECTION), {
+      date, category: l.category, amount: l.amount, note, createdAt: serverTimestamp(),
+    })));
+    reimburseLines.innerHTML = "";
+    addReimburseLine();
     document.getElementById("r-note").value = "";
     document.getElementById("r-date").value = todayISO();
-    statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
+    statusEl.textContent = "已送出 " + lines.length + " 筆"; statusEl.className = "status-msg ok";
     setTimeout(() => { statusEl.textContent = ""; }, 2500);
   } catch (e) {
     statusEl.textContent = "送出失敗:" + e.message; statusEl.className = "status-msg err";
