@@ -534,8 +534,7 @@ function updateReimburseSummary() {
   document.getElementById("rsTotal").textContent = "NT$ " + total.toLocaleString("zh-Hant");
 
   const quota = monthlyQuotas[month] || 0;
-  const usedSoFar = reimburseEntries.filter((r) => r.date && r.date.startsWith(month)).reduce((sum, r) => sum + (r.amount || 0), 0);
-  const balance = quota - usedSoFar - total;
+  const balance = quota - total;
   const balancesEl = document.getElementById("rsBalances");
   balancesEl.innerHTML = '<div class="rls-row"><span>本次核銷餘額</span><span class="num' + (balance < 0 ? " balance-negative" : "") + '">NT$ ' + balance.toLocaleString("zh-Hant") + '</span></div>';
 }
