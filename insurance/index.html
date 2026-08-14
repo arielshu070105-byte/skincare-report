@@ -379,13 +379,6 @@
     </div>
 
     <div class="card">
-      <h2>設定額度</h2>
-      <div id="quotaEditGrid" class="quota-edit-grid"></div>
-      <button class="btn-primary" onclick="saveQuotas()">儲存額度</button>
-      <p id="quotaStatus" class="status-msg"></p>
-    </div>
-
-    <div class="card">
       <h2>新增核銷記錄</h2>
       <div class="field-row">
         <div><label for="r-date">日期</label><input type="date" id="r-date"></div>
@@ -418,7 +411,7 @@
 import { initFirebase } from "./firebase-init.js";
 import { escapeHtml, todayISO } from "./shared.js";
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp,
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -496,11 +489,6 @@ reimburseCategoryChips.addEventListener("click", (e) => {
   btn.setAttribute("aria-pressed", "true");
   selectedReimburseCategory = btn.dataset.value;
 });
-
-const quotaEditGrid = document.getElementById("quotaEditGrid");
-quotaEditGrid.innerHTML = REIMBURSE_CATEGORIES.map((cat) =>
-  '<div><label for="quota-' + cat.code + '">' + cat.code + " " + cat.name + '</label><input type="number" id="quota-' + cat.code + '" inputmode="numeric" placeholder="0"></div>'
-).join("");
 
 const pageTabs = document.getElementById("pageTabs");
 pageTabs.addEventListener("click", (e) => {
@@ -1076,37 +1064,14 @@ function categoryLabel(code) {
   return cat ? cat.code + " " + cat.name : code;
 }
 
-async function loadQuotas() {
-  try {
-    const snap = await getDoc(doc(db, "settings", "reimbursementQuotas"));
+let unsubscribeQuotas = null;
+function startListeningQuotas() {
+  if (unsubscribeQuotas) unsubscribeQuotas();
+  unsubscribeQuotas = onSnapshot(doc(db, "settings", "reimbursementQuotas"), (snap) => {
     quotas = snap.exists() ? snap.data() : {};
-  } catch (e) {
-    console.error(e);
-    quotas = {};
-  }
-  REIMBURSE_CATEGORIES.forEach((cat) => {
-    document.getElementById("quota-" + cat.code).value = quotas[cat.code] || "";
-  });
-  renderQuotaSummary();
-}
-
-window.saveQuotas = async function () {
-  const statusEl = document.getElementById("quotaStatus");
-  const newQuotas = {};
-  REIMBURSE_CATEGORIES.forEach((cat) => {
-    newQuotas[cat.code] = Number(document.getElementById("quota-" + cat.code).value) || 0;
-  });
-  statusEl.textContent = "儲存中…"; statusEl.className = "status-msg";
-  try {
-    await setDoc(doc(db, "settings", "reimbursementQuotas"), newQuotas);
-    quotas = newQuotas;
     renderQuotaSummary();
-    statusEl.textContent = "已儲存"; statusEl.className = "status-msg ok";
-    setTimeout(() => { statusEl.textContent = ""; }, 2500);
-  } catch (e) {
-    statusEl.textContent = "儲存失敗:" + e.message; statusEl.className = "status-msg err";
-  }
-};
+  }, (e) => { console.error(e); });
+}
 
 function renderQuotaSummary() {
   const body = document.getElementById("quotaSummaryBody");
@@ -1242,7 +1207,7 @@ onAuthStateChanged(auth, (user) => {
     startListeningGifts();
     startListeningCalendar();
     startListeningReimburse();
-    loadQuotas();
+    startListeningQuotas();
   } else {
     document.getElementById("app").style.display = "none";
     document.getElementById("loginScreen").style.display = "block";
