@@ -142,7 +142,7 @@
 
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .export-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
-  .export-row input[type="month"] { flex: 1; min-width: 120px; margin: 0; min-height: 44px; }
+  .export-row input[type="month"], .export-row input[type="number"] { flex: 1; min-width: 120px; margin: 0; min-height: 44px; }
   .export-row .export-range-sep { color: var(--ink-soft); font-size: 13px; flex-shrink: 0; }
   .export-row button { flex-shrink: 0; white-space: nowrap; min-height: 44px; }
   .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -380,10 +380,20 @@
     <div class="card">
       <h2>核銷總覽</h2>
       <label for="quotaSummaryMonth">月份</label>
-      <input type="month" id="quotaSummaryMonth" style="margin-bottom:14px">
+      <input type="month" id="quotaSummaryMonth">
+      <label for="monthlyQuotaInput">本次可核銷金額</label>
+      <div class="export-row">
+        <input type="number" id="monthlyQuotaInput" inputmode="numeric" placeholder="0">
+        <button type="button" class="btn-sm" onclick="saveMonthlyQuota()">儲存</button>
+      </div>
+      <p id="monthlyQuotaStatus" class="status-msg"></p>
+      <div class="reimburse-live-summary">
+        <div class="rls-row"><span>本月合計</span><span id="monthTotalDisplay" class="num">NT$ 0</span></div>
+        <div class="rls-row"><span>本次核銷餘額</span><span id="monthBalanceDisplay" class="num">NT$ 0</span></div>
+      </div>
       <div style="overflow-x:auto">
         <table class="quota-table">
-          <thead><tr><th>項目</th><th>額度</th><th>合計</th><th>餘額</th></tr></thead>
+          <thead><tr><th>項目</th><th>合計</th></tr></thead>
           <tbody id="quotaSummaryBody"></tbody>
         </table>
       </div>
@@ -469,7 +479,7 @@ let unsubscribeCalendarList = null;
 let selectedCalendarItems = new Set();
 let reimburseEntries = [];
 let unsubscribeReimburseList = null;
-let quotas = {};
+let monthlyQuotas = {};
 
 function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
 window.toggleTheme = function () {
@@ -491,7 +501,10 @@ document.getElementById("r-date").value = todayISO();
 document.getElementById("reimburseExportMonthFrom").value = todayISO().slice(0, 7);
 document.getElementById("reimburseExportMonthTo").value = todayISO().slice(0, 7);
 document.getElementById("quotaSummaryMonth").value = todayISO().slice(0, 7);
-document.getElementById("quotaSummaryMonth").addEventListener("change", renderQuotaSummary);
+document.getElementById("quotaSummaryMonth").addEventListener("change", () => {
+  document.getElementById("monthlyQuotaInput").value = monthlyQuotas[document.getElementById("quotaSummaryMonth").value] || "";
+  renderQuotaSummary();
+});
 
 const reimburseLines = document.getElementById("reimburseLines");
 window.addReimburseLine = function () {
@@ -520,15 +533,11 @@ function updateReimburseSummary() {
   const total = lines.reduce((sum, l) => sum + l.amount, 0);
   document.getElementById("rsTotal").textContent = "NT$ " + total.toLocaleString("zh-Hant");
 
-  const draftByCategory = {};
-  lines.forEach((l) => { draftByCategory[l.category] = (draftByCategory[l.category] || 0) + l.amount; });
+  const quota = monthlyQuotas[month] || 0;
+  const usedSoFar = reimburseEntries.filter((r) => r.date && r.date.startsWith(month)).reduce((sum, r) => sum + (r.amount || 0), 0);
+  const balance = quota - usedSoFar - total;
   const balancesEl = document.getElementById("rsBalances");
-  balancesEl.innerHTML = Object.keys(draftByCategory).map((code) => {
-    const quota = quotas[code] || 0;
-    const usedSoFar = reimburseEntries.filter((r) => r.category === code && r.date && r.date.startsWith(month)).reduce((sum, r) => sum + (r.amount || 0), 0);
-    const balance = quota - usedSoFar - draftByCategory[code];
-    return '<div class="rls-row"><span>' + escapeHtml(categoryLabel(code)) + ' 本次核銷餘額</span><span class="num' + (balance < 0 ? " balance-negative" : "") + '">NT$ ' + balance.toLocaleString("zh-Hant") + '</span></div>';
-  }).join("");
+  balancesEl.innerHTML = '<div class="rls-row"><span>本次核銷餘額</span><span class="num' + (balance < 0 ? " balance-negative" : "") + '">NT$ ' + balance.toLocaleString("zh-Hant") + '</span></div>';
 }
 
 reimburseLines.addEventListener("input", updateReimburseSummary);
@@ -1114,25 +1123,43 @@ function categoryLabel(code) {
 let unsubscribeQuotas = null;
 function startListeningQuotas() {
   if (unsubscribeQuotas) unsubscribeQuotas();
-  unsubscribeQuotas = onSnapshot(doc(db, "settings", "reimbursementQuotas"), (snap) => {
-    quotas = snap.exists() ? snap.data() : {};
+  unsubscribeQuotas = onSnapshot(doc(db, "settings", "reimbursementMonthlyQuota"), (snap) => {
+    monthlyQuotas = snap.exists() ? snap.data() : {};
+    document.getElementById("monthlyQuotaInput").value = monthlyQuotas[document.getElementById("quotaSummaryMonth").value] || "";
     renderQuotaSummary();
     updateReimburseSummary();
   }, (e) => { console.error(e); });
 }
 
+window.saveMonthlyQuota = async function () {
+  const month = document.getElementById("quotaSummaryMonth").value || todayISO().slice(0, 7);
+  const amount = Number(document.getElementById("monthlyQuotaInput").value) || 0;
+  const statusEl = document.getElementById("monthlyQuotaStatus");
+  statusEl.textContent = "儲存中…"; statusEl.className = "status-msg";
+  try {
+    await setDoc(doc(db, "settings", "reimbursementMonthlyQuota"), { [month]: amount }, { merge: true });
+    statusEl.textContent = "已儲存"; statusEl.className = "status-msg ok";
+    setTimeout(() => { statusEl.textContent = ""; }, 2500);
+  } catch (e) {
+    statusEl.textContent = "儲存失敗:" + e.message; statusEl.className = "status-msg err";
+  }
+};
+
 function renderQuotaSummary() {
   const body = document.getElementById("quotaSummaryBody");
   const month = document.getElementById("quotaSummaryMonth").value || todayISO().slice(0, 7);
+  const monthEntries = reimburseEntries.filter((r) => r.date && r.date.startsWith(month));
+  const monthTotal = monthEntries.reduce((sum, r) => sum + (r.amount || 0), 0);
+  const monthQuota = monthlyQuotas[month] || 0;
+  const monthBalance = monthQuota - monthTotal;
+  document.getElementById("monthTotalDisplay").textContent = "NT$ " + monthTotal.toLocaleString("zh-Hant");
+  const balanceEl = document.getElementById("monthBalanceDisplay");
+  balanceEl.textContent = "NT$ " + monthBalance.toLocaleString("zh-Hant");
+  balanceEl.classList.toggle("balance-negative", monthBalance < 0);
+
   body.innerHTML = REIMBURSE_CATEGORIES.map((cat) => {
-    const quota = quotas[cat.code] || 0;
-    const total = reimburseEntries
-      .filter((r) => r.category === cat.code && r.date && r.date.startsWith(month))
-      .reduce((sum, r) => sum + (r.amount || 0), 0);
-    const balance = quota - total;
-    return "<tr><td>" + cat.code + " " + escapeHtml(cat.name) + '</td><td class="num">' + quota.toLocaleString("zh-Hant") +
-      '</td><td class="num">' + total.toLocaleString("zh-Hant") + '</td><td class="num' + (balance < 0 ? " balance-negative" : "") + '">' +
-      balance.toLocaleString("zh-Hant") + "</td></tr>";
+    const total = monthEntries.filter((r) => r.category === cat.code).reduce((sum, r) => sum + (r.amount || 0), 0);
+    return "<tr><td>" + cat.code + " " + escapeHtml(cat.name) + '</td><td class="num">' + total.toLocaleString("zh-Hant") + "</td></tr>";
   }).join("");
 }
 
