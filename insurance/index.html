@@ -191,6 +191,11 @@
   .quota-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
   .quota-edit-grid label { font-size: 12.5px; margin: 0 0 4px; }
   .quota-edit-grid input { min-height: 42px; }
+  .reimburse-live-summary { background: var(--pill-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 12px 14px; margin: 14px 0; font-variant-numeric: tabular-nums; }
+  .rls-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; padding: 3px 0; }
+  .rls-row:first-child { font-weight: 900; font-size: 15px; color: var(--ink); }
+  .rls-row .num { font-weight: 700; }
+  .rls-row .balance-negative { color: var(--danger); }
   .reimburse-line { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .reimburse-line select { flex: 2; margin: 0; }
   .reimburse-line input { flex: 1; margin: 0; }
@@ -388,6 +393,10 @@
       <h2>新增核銷記錄</h2>
       <label for="r-date">日期</label>
       <input type="date" id="r-date">
+      <div class="reimburse-live-summary">
+        <div class="rls-row"><span>本次核銷金額</span><span id="rsTotal" class="num">NT$ 0</span></div>
+        <div id="rsBalances"></div>
+      </div>
       <label>核銷項目</label>
       <div id="reimburseLines"></div>
       <button type="button" class="btn-ghost" onclick="addReimburseLine()">+ 加一項</button>
@@ -491,7 +500,7 @@ window.addReimburseLine = function () {
   row.innerHTML =
     '<select class="rl-category"></select>' +
     '<input type="number" class="rl-amount" placeholder="金額" inputmode="numeric">' +
-    '<button type="button" class="remove-line-btn" onclick="this.closest(\'.reimburse-line\').remove()">×</button>';
+    '<button type="button" class="remove-line-btn" onclick="this.closest(\'.reimburse-line\').remove(); updateReimburseSummary();">×</button>';
   const sel = row.querySelector(".rl-category");
   REIMBURSE_CATEGORIES.forEach((cat) => {
     const opt = document.createElement("option");
@@ -500,7 +509,32 @@ window.addReimburseLine = function () {
     sel.appendChild(opt);
   });
   reimburseLines.appendChild(row);
+  updateReimburseSummary();
 };
+
+function updateReimburseSummary() {
+  const month = (document.getElementById("r-date").value || todayISO()).slice(0, 7);
+  const lines = [...reimburseLines.querySelectorAll(".reimburse-line")]
+    .map((row) => ({ category: row.querySelector(".rl-category").value, amount: Number(row.querySelector(".rl-amount").value) || 0 }))
+    .filter((l) => l.amount > 0);
+  const total = lines.reduce((sum, l) => sum + l.amount, 0);
+  document.getElementById("rsTotal").textContent = "NT$ " + total.toLocaleString("zh-Hant");
+
+  const draftByCategory = {};
+  lines.forEach((l) => { draftByCategory[l.category] = (draftByCategory[l.category] || 0) + l.amount; });
+  const balancesEl = document.getElementById("rsBalances");
+  balancesEl.innerHTML = Object.keys(draftByCategory).map((code) => {
+    const quota = quotas[code] || 0;
+    const usedSoFar = reimburseEntries.filter((r) => r.category === code && r.date && r.date.startsWith(month)).reduce((sum, r) => sum + (r.amount || 0), 0);
+    const balance = quota - usedSoFar - draftByCategory[code];
+    return '<div class="rls-row"><span>' + escapeHtml(categoryLabel(code)) + ' 本次核銷餘額</span><span class="num' + (balance < 0 ? " balance-negative" : "") + '">NT$ ' + balance.toLocaleString("zh-Hant") + '</span></div>';
+  }).join("");
+}
+
+reimburseLines.addEventListener("input", updateReimburseSummary);
+reimburseLines.addEventListener("change", updateReimburseSummary);
+document.getElementById("r-date").addEventListener("change", updateReimburseSummary);
+
 addReimburseLine();
 
 const pageTabs = document.getElementById("pageTabs");
@@ -1083,6 +1117,7 @@ function startListeningQuotas() {
   unsubscribeQuotas = onSnapshot(doc(db, "settings", "reimbursementQuotas"), (snap) => {
     quotas = snap.exists() ? snap.data() : {};
     renderQuotaSummary();
+    updateReimburseSummary();
   }, (e) => { console.error(e); });
 }
 
@@ -1183,6 +1218,7 @@ function buildReimburseCard(r) {
 
 function renderReimburseList() {
   renderQuotaSummary();
+  updateReimburseSummary();
   const list = document.getElementById("reimburseList");
   list.innerHTML = "";
   if (reimburseEntries.length === 0) {
