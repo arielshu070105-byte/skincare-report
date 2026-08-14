@@ -379,7 +379,7 @@
 
     <div class="tab-view" id="tabReimburse">
     <div class="card">
-      <h2>核銷總覽</h2>
+      <h2>新增核銷記錄</h2>
       <label for="quotaSummaryMonth">月份</label>
       <input type="month" id="quotaSummaryMonth">
       <label for="monthlyQuotaInput">本次可核銷金額</label>
@@ -388,20 +388,9 @@
         <button type="button" class="btn-sm" onclick="saveMonthlyQuota()">儲存</button>
       </div>
       <p id="monthlyQuotaStatus" class="status-msg"></p>
-      <div class="reimburse-live-summary">
-        <div class="rls-row"><span>本月合計</span><span id="monthTotalDisplay" class="num">NT$ 0</span></div>
-        <div class="rls-row"><span>本次核銷餘額</span><span id="monthBalanceDisplay" class="num">NT$ 0</span></div>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="quota-table">
-          <thead><tr><th>項目</th><th>合計</th></tr></thead>
-          <tbody id="quotaSummaryBody"></tbody>
-        </table>
-      </div>
 
       <div class="section-divider"></div>
 
-      <h2>新增核銷記錄</h2>
       <label for="r-date">日期</label>
       <input type="date" id="r-date">
       <div class="reimburse-live-summary">
@@ -504,7 +493,7 @@ document.getElementById("reimburseExportMonthTo").value = todayISO().slice(0, 7)
 document.getElementById("quotaSummaryMonth").value = todayISO().slice(0, 7);
 document.getElementById("quotaSummaryMonth").addEventListener("change", () => {
   document.getElementById("monthlyQuotaInput").value = monthlyQuotas[document.getElementById("quotaSummaryMonth").value] || "";
-  renderQuotaSummary();
+  updateReimburseSummary();
 });
 
 const reimburseLines = document.getElementById("reimburseLines");
@@ -527,7 +516,7 @@ window.addReimburseLine = function () {
 };
 
 function updateReimburseSummary() {
-  const month = (document.getElementById("r-date").value || todayISO()).slice(0, 7);
+  const month = document.getElementById("quotaSummaryMonth").value || todayISO().slice(0, 7);
   const lines = [...reimburseLines.querySelectorAll(".reimburse-line")]
     .map((row) => ({ category: row.querySelector(".rl-category").value, amount: Number(row.querySelector(".rl-amount").value) || 0 }))
     .filter((l) => l.amount > 0);
@@ -542,7 +531,6 @@ function updateReimburseSummary() {
 
 reimburseLines.addEventListener("input", updateReimburseSummary);
 reimburseLines.addEventListener("change", updateReimburseSummary);
-document.getElementById("r-date").addEventListener("change", updateReimburseSummary);
 
 addReimburseLine();
 
@@ -1126,7 +1114,6 @@ function startListeningQuotas() {
   unsubscribeQuotas = onSnapshot(doc(db, "settings", "reimbursementMonthlyQuota"), (snap) => {
     monthlyQuotas = snap.exists() ? snap.data() : {};
     document.getElementById("monthlyQuotaInput").value = monthlyQuotas[document.getElementById("quotaSummaryMonth").value] || "";
-    renderQuotaSummary();
     updateReimburseSummary();
   }, (e) => { console.error(e); });
 }
@@ -1144,24 +1131,6 @@ window.saveMonthlyQuota = async function () {
     statusEl.textContent = "儲存失敗:" + e.message; statusEl.className = "status-msg err";
   }
 };
-
-function renderQuotaSummary() {
-  const body = document.getElementById("quotaSummaryBody");
-  const month = document.getElementById("quotaSummaryMonth").value || todayISO().slice(0, 7);
-  const monthEntries = reimburseEntries.filter((r) => r.date && r.date.startsWith(month));
-  const monthTotal = monthEntries.reduce((sum, r) => sum + (r.amount || 0), 0);
-  const monthQuota = monthlyQuotas[month] || 0;
-  const monthBalance = monthQuota - monthTotal;
-  document.getElementById("monthTotalDisplay").textContent = "NT$ " + monthTotal.toLocaleString("zh-Hant");
-  const balanceEl = document.getElementById("monthBalanceDisplay");
-  balanceEl.textContent = "NT$ " + monthBalance.toLocaleString("zh-Hant");
-  balanceEl.classList.toggle("balance-negative", monthBalance < 0);
-
-  body.innerHTML = REIMBURSE_CATEGORIES.map((cat) => {
-    const total = monthEntries.filter((r) => r.category === cat.code).reduce((sum, r) => sum + (r.amount || 0), 0);
-    return "<tr><td>" + cat.code + " " + escapeHtml(cat.name) + '</td><td class="num">' + total.toLocaleString("zh-Hant") + "</td></tr>";
-  }).join("");
-}
 
 window.submitReimburse = async function () {
   const statusEl = document.getElementById("reimburseAddStatus");
@@ -1244,7 +1213,6 @@ function buildReimburseCard(r) {
 }
 
 function renderReimburseList() {
-  renderQuotaSummary();
   updateReimburseSummary();
   const list = document.getElementById("reimburseList");
   list.innerHTML = "";
