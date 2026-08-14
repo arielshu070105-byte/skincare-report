@@ -370,6 +370,8 @@
     <div class="tab-view" id="tabReimburse">
     <div class="card">
       <h2>核銷總覽</h2>
+      <label for="quotaSummaryMonth">月份</label>
+      <input type="month" id="quotaSummaryMonth" style="margin-bottom:14px">
       <div style="overflow-x:auto">
         <table class="quota-table">
           <thead><tr><th>項目</th><th>額度</th><th>合計</th><th>餘額</th></tr></thead>
@@ -477,6 +479,8 @@ document.getElementById("calendarExportMonthTo").value = todayISO().slice(0, 7);
 document.getElementById("r-date").value = todayISO();
 document.getElementById("reimburseExportMonthFrom").value = todayISO().slice(0, 7);
 document.getElementById("reimburseExportMonthTo").value = todayISO().slice(0, 7);
+document.getElementById("quotaSummaryMonth").value = todayISO().slice(0, 7);
+document.getElementById("quotaSummaryMonth").addEventListener("change", renderQuotaSummary);
 
 const reimburseCategoryChips = document.getElementById("reimburseCategoryChips");
 reimburseCategoryChips.innerHTML = REIMBURSE_CATEGORIES.map((cat, i) =>
@@ -1075,9 +1079,12 @@ function startListeningQuotas() {
 
 function renderQuotaSummary() {
   const body = document.getElementById("quotaSummaryBody");
+  const month = document.getElementById("quotaSummaryMonth").value || todayISO().slice(0, 7);
   body.innerHTML = REIMBURSE_CATEGORIES.map((cat) => {
     const quota = quotas[cat.code] || 0;
-    const total = reimburseEntries.filter((r) => r.category === cat.code).reduce((sum, r) => sum + (r.amount || 0), 0);
+    const total = reimburseEntries
+      .filter((r) => r.category === cat.code && r.date && r.date.startsWith(month))
+      .reduce((sum, r) => sum + (r.amount || 0), 0);
     const balance = quota - total;
     return "<tr><td>" + cat.code + " " + escapeHtml(cat.name) + '</td><td class="num">' + quota.toLocaleString("zh-Hant") +
       '</td><td class="num">' + total.toLocaleString("zh-Hant") + '</td><td class="num' + (balance < 0 ? " balance-negative" : "") + '">' +
