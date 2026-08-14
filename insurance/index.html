@@ -191,6 +191,7 @@
   .quota-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
   .quota-edit-grid label { font-size: 12.5px; margin: 0 0 4px; }
   .quota-edit-grid input { min-height: 42px; }
+  .section-divider { border-top: 1px solid var(--line); margin: 24px 0 20px; }
   .reimburse-live-summary { background: var(--pill-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 12px 14px; margin: 14px 0; font-variant-numeric: tabular-nums; }
   .rls-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; padding: 3px 0; }
   .rls-row:first-child { font-weight: 900; font-size: 15px; color: var(--ink); }
@@ -397,9 +398,9 @@
           <tbody id="quotaSummaryBody"></tbody>
         </table>
       </div>
-    </div>
 
-    <div class="card">
+      <div class="section-divider"></div>
+
       <h2>新增核銷記錄</h2>
       <label for="r-date">日期</label>
       <input type="date" id="r-date">
