@@ -1048,7 +1048,7 @@ function buildVisitCard(v) {
   main.className = "entry-main";
   const preview = (v.content || "").slice(0, 40) + ((v.content || "").length > 40 ? "…" : "");
   main.innerHTML =
-    '<div class="entry-top"><span class="entry-name">' + escapeHtml(v.name) + '</span></div>' +
+    '<div class="entry-top"><span class="entry-name">' + v.date + '</span></div>' +
     '<div class="entry-sub">' + (preview ? '<span>' + escapeHtml(preview) + '</span>' : '') + "</div>";
   summary.appendChild(main);
   wrap.appendChild(summary);
@@ -1102,16 +1102,17 @@ function renderVisits() {
     list.appendChild(empty);
     return;
   }
-  const byDate = {};
-  filtered.forEach((v) => { (byDate[v.date] = byDate[v.date] || []).push(v); });
-  Object.keys(byDate).sort((a, b) => (a < b ? 1 : -1)).forEach((date) => {
+  const byName = {};
+  filtered.forEach((v) => { (byName[v.name] = byName[v.name] || []).push(v); });
+  const latestDateOf = (name) => byName[name].reduce((m, v) => (v.date > m ? v.date : m), "");
+  Object.keys(byName).sort((a, b) => (latestDateOf(a) < latestDateOf(b) ? 1 : -1)).forEach((name) => {
     const group = document.createElement("div");
     group.className = "day-group";
     const head = document.createElement("div");
     head.className = "day-head";
-    head.innerHTML = '<span class="date">' + date + '</span><span class="count">' + byDate[date].length + " 筆</span>";
+    head.innerHTML = '<span class="date">' + escapeHtml(name) + '</span><span class="count">' + byName[name].length + " 筆</span>";
     group.appendChild(head);
-    byDate[date].forEach((v) => group.appendChild(buildVisitCard(v)));
+    byName[name].sort((a, b) => (a.date < b.date ? 1 : -1)).forEach((v) => group.appendChild(buildVisitCard(v)));
     list.appendChild(group);
   });
 }
