@@ -244,6 +244,7 @@
       <button type="button" class="chip" data-tab="gifts" aria-pressed="false">送禮記錄</button>
       <button type="button" class="chip" data-tab="calendar" aria-pressed="false">年曆</button>
       <button type="button" class="chip" data-tab="reimburse" aria-pressed="false">核銷</button>
+      <button type="button" class="chip" data-tab="visits" aria-pressed="false">拜訪記錄</button>
     </div>
 
     <div class="tab-view active" id="tabSubmissions">
@@ -417,6 +418,34 @@
       <div id="reimburseList"></div>
     </div>
     </div>
+
+    <div class="tab-view" id="tabVisits">
+    <div class="card">
+      <h2>新增拜訪記錄</h2>
+      <div class="field-row">
+        <div><label for="v-date">拜訪日期</label><input type="date" id="v-date"></div>
+        <div><label for="v-name">客戶姓名</label><input type="text" id="v-name" placeholder="王小明"></div>
+      </div>
+      <label for="v-content">聊了什麼、對話重點</label>
+      <textarea id="v-content" placeholder="家庭狀況、保單需求、個性偏好…"></textarea>
+      <label for="v-followup">下次拜訪要追蹤的事</label>
+      <textarea id="v-followup" placeholder="選填"></textarea>
+      <button class="btn-primary" onclick="submitVisit()">送出記錄</button>
+      <p id="visitAddStatus" class="status-msg"></p>
+    </div>
+
+    <div class="card">
+      <h2>拜訪記錄</h2>
+      <div class="export-row">
+        <input type="month" id="visitExportMonthFrom">
+        <span class="export-range-sep">至</span>
+        <input type="month" id="visitExportMonthTo">
+        <button type="button" class="btn-sm" onclick="exportVisitMonth()">匯出 Excel</button>
+      </div>
+      <input type="text" id="visitSearchBox" placeholder="搜尋客戶姓名…" style="margin-bottom:14px">
+      <div id="visitList"></div>
+    </div>
+    </div>
   </div>
 
 </div>
@@ -436,6 +465,7 @@ const COLLECTION = "insuranceSubmissions";
 const GIFT_COLLECTION = "giftLog";
 const CALENDAR_COLLECTION = "calendarLog";
 const CALENDAR_ITEMS = ["年曆", "桌曆", "小本子", "中式桌曆", "月曆"];
+const VISIT_COLLECTION = "visitLogs";
 const REIMBURSE_COLLECTION = "reimbursements";
 const REIMBURSE_CATEGORIES = [
   { code: "1-7", name: "訓練費" },
@@ -470,6 +500,9 @@ let selectedCalendarItems = new Set();
 let reimburseEntries = [];
 let unsubscribeReimburseList = null;
 let monthlyQuotas = {};
+let visitEntries = [];
+let unsubscribeVisitList = null;
+let visitSearchTerm = "";
 
 function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
 window.toggleTheme = function () {
@@ -490,6 +523,9 @@ document.getElementById("calendarExportMonthTo").value = todayISO().slice(0, 7);
 document.getElementById("r-date").value = todayISO();
 document.getElementById("reimburseExportMonthFrom").value = todayISO().slice(0, 7);
 document.getElementById("reimburseExportMonthTo").value = todayISO().slice(0, 7);
+document.getElementById("v-date").value = todayISO();
+document.getElementById("visitExportMonthFrom").value = todayISO().slice(0, 7);
+document.getElementById("visitExportMonthTo").value = todayISO().slice(0, 7);
 document.getElementById("quotaSummaryMonth").value = todayISO().slice(0, 7);
 document.getElementById("quotaSummaryMonth").addEventListener("change", () => {
   document.getElementById("monthlyQuotaInput").value = monthlyQuotas[document.getElementById("quotaSummaryMonth").value] || "";
@@ -544,6 +580,7 @@ pageTabs.addEventListener("click", (e) => {
   document.getElementById("tabGifts").classList.toggle("active", btn.dataset.tab === "gifts");
   document.getElementById("tabCalendar").classList.toggle("active", btn.dataset.tab === "calendar");
   document.getElementById("tabReimburse").classList.toggle("active", btn.dataset.tab === "reimburse");
+  document.getElementById("tabVisits").classList.toggle("active", btn.dataset.tab === "visits");
 });
 
 const giftOccasionChips = document.getElementById("giftOccasionChips");
@@ -968,6 +1005,126 @@ function startListeningGifts() {
   }, (e) => { console.error(e); });
 }
 
+document.getElementById("visitSearchBox").addEventListener("input", (e) => {
+  visitSearchTerm = e.target.value.trim();
+  renderVisits();
+});
+
+window.submitVisit = async function () {
+  const name = document.getElementById("v-name").value.trim();
+  const statusEl = document.getElementById("visitAddStatus");
+  if (!name) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
+  const payload = {
+    date: document.getElementById("v-date").value || todayISO(),
+    name,
+    content: document.getElementById("v-content").value.trim(),
+    followup: document.getElementById("v-followup").value.trim(),
+    createdAt: serverTimestamp(),
+  };
+  statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
+  try {
+    await addDoc(collection(db, VISIT_COLLECTION), payload);
+    document.getElementById("v-name").value = "";
+    document.getElementById("v-content").value = "";
+    document.getElementById("v-followup").value = "";
+    document.getElementById("v-date").value = todayISO();
+    statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
+    setTimeout(() => { statusEl.textContent = ""; }, 2500);
+  } catch (e) {
+    statusEl.textContent = "送出失敗:" + e.message; statusEl.className = "status-msg err";
+  }
+};
+
+function matchesVisitSearch(v) {
+  if (!visitSearchTerm) return true;
+  return v.name.includes(visitSearchTerm);
+}
+
+function buildVisitCard(v) {
+  const wrap = document.createElement("details");
+  wrap.className = "entry";
+  const summary = document.createElement("summary");
+  const main = document.createElement("div");
+  main.className = "entry-main";
+  const preview = (v.content || "").slice(0, 40) + ((v.content || "").length > 40 ? "…" : "");
+  main.innerHTML =
+    '<div class="entry-top"><span class="entry-name">' + escapeHtml(v.name) + '</span></div>' +
+    '<div class="entry-sub">' + (preview ? '<span>' + escapeHtml(preview) + '</span>' : '') + "</div>";
+  summary.appendChild(main);
+  wrap.appendChild(summary);
+
+  const detail = document.createElement("div");
+  detail.className = "entry-detail";
+  detail.innerHTML =
+    '<label>拜訪日期</label><input type="date" class="vd-date" value="' + v.date + '">' +
+    '<label>客戶姓名</label><input type="text" class="vd-name" value="' + escapeHtml(v.name) + '">' +
+    '<label>聊了什麼、對話重點</label><textarea class="vd-content">' + escapeHtml(v.content || "") + '</textarea>' +
+    '<label>下次拜訪要追蹤的事</label><textarea class="vd-followup">' + escapeHtml(v.followup || "") + '</textarea>' +
+    '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
+    '<p class="e-status-msg status-msg"></p>';
+
+  detail.querySelector(".btn-save").addEventListener("click", async () => {
+    const msgEl = detail.querySelector(".e-status-msg");
+    msgEl.textContent = "儲存中…"; msgEl.className = "e-status-msg status-msg";
+    try {
+      await updateDoc(doc(db, VISIT_COLLECTION, v.id), {
+        date: detail.querySelector(".vd-date").value || v.date,
+        name: detail.querySelector(".vd-name").value.trim() || v.name,
+        content: detail.querySelector(".vd-content").value.trim(),
+        followup: detail.querySelector(".vd-followup").value.trim(),
+      });
+      msgEl.textContent = "已儲存"; msgEl.className = "e-status-msg status-msg ok";
+    } catch (e) {
+      msgEl.textContent = "儲存失敗:" + e.message; msgEl.className = "e-status-msg status-msg err";
+    }
+  });
+  detail.querySelector(".btn-delete").addEventListener("click", async () => {
+    if (!confirm("確定要刪除「" + v.name + "」這筆拜訪記錄嗎?")) return;
+    try {
+      await deleteDoc(doc(db, VISIT_COLLECTION, v.id));
+    } catch (e) {
+      alert("刪除失敗:" + e.message);
+    }
+  });
+
+  wrap.appendChild(detail);
+  return wrap;
+}
+
+function renderVisits() {
+  const list = document.getElementById("visitList");
+  list.innerHTML = "";
+  const filtered = visitEntries.filter(matchesVisitSearch);
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = visitEntries.length === 0 ? "還沒有拜訪記錄,填上面的表單開始登記。" : "沒有符合條件的記錄。";
+    list.appendChild(empty);
+    return;
+  }
+  const byDate = {};
+  filtered.forEach((v) => { (byDate[v.date] = byDate[v.date] || []).push(v); });
+  Object.keys(byDate).sort((a, b) => (a < b ? 1 : -1)).forEach((date) => {
+    const group = document.createElement("div");
+    group.className = "day-group";
+    const head = document.createElement("div");
+    head.className = "day-head";
+    head.innerHTML = '<span class="date">' + date + '</span><span class="count">' + byDate[date].length + " 筆</span>";
+    group.appendChild(head);
+    byDate[date].forEach((v) => group.appendChild(buildVisitCard(v)));
+    list.appendChild(group);
+  });
+}
+
+function startListeningVisits() {
+  if (unsubscribeVisitList) unsubscribeVisitList();
+  const q = query(collection(db, VISIT_COLLECTION), orderBy("createdAt", "desc"));
+  unsubscribeVisitList = onSnapshot(q, (snap) => {
+    visitEntries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderVisits();
+  }, (e) => { console.error(e); });
+}
+
 window.submitCalendar = async function () {
   const name = document.getElementById("c-name").value.trim();
   const statusEl = document.getElementById("calendarAddStatus");
@@ -1255,6 +1412,7 @@ onAuthStateChanged(auth, (user) => {
     startListeningCalendar();
     startListeningReimburse();
     startListeningQuotas();
+    startListeningVisits();
   } else {
     document.getElementById("app").style.display = "none";
     document.getElementById("loginScreen").style.display = "block";
@@ -1354,6 +1512,18 @@ window.exportReimburseMonth = function () {
   if (rows.length === 0) { alert(range.from + " ~ " + range.to + " 這段期間沒有核銷記錄"); return; }
   const header = ["日期", "項目", "金額", "備註"];
   downloadCsv("核銷_" + range.from + "_" + range.to + ".csv", header, rows);
+};
+
+window.exportVisitMonth = function () {
+  const range = getMonthRange("visitExportMonthFrom", "visitExportMonthTo");
+  if (!range) return;
+  const rows = visitEntries
+    .filter((v) => inMonthRange(v.date, range.from, range.to))
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .map((v) => [v.date, v.name, v.content, v.followup]);
+  if (rows.length === 0) { alert(range.from + " ~ " + range.to + " 這段期間沒有拜訪記錄"); return; }
+  const header = ["日期", "客戶姓名", "對話重點", "下次追蹤"];
+  downloadCsv("拜訪記錄_" + range.from + "_" + range.to + ".csv", header, rows);
 };
 </script>
 </body>
