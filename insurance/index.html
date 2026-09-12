@@ -583,6 +583,21 @@ pageTabs.addEventListener("click", (e) => {
   document.getElementById("tabVisits").classList.toggle("active", btn.dataset.tab === "visits");
 });
 
+// 讓 Claude App 產生的連結可以自動帶參數開啟拜訪記錄表單,
+// 網址格式:?v_name=客戶姓名&v_date=YYYY-MM-DD&v_content=對話重點&v_followup=下次追蹤(選填)
+function applyVisitUrlPrefill() {
+  const params = new URLSearchParams(window.location.search);
+  const hasVisitParam = ["v_name", "v_date", "v_content", "v_followup"].some((k) => params.has(k));
+  if (!hasVisitParam) return;
+  if (params.get("v_name")) document.getElementById("v-name").value = params.get("v_name");
+  if (params.get("v_date")) document.getElementById("v-date").value = params.get("v_date");
+  if (params.get("v_content")) document.getElementById("v-content").value = params.get("v_content");
+  if (params.get("v_followup")) document.getElementById("v-followup").value = params.get("v_followup");
+  const visitTabBtn = [...pageTabs.children].find((c) => c.dataset.tab === "visits");
+  if (visitTabBtn) visitTabBtn.click();
+  document.getElementById("v-content").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 const giftOccasionChips = document.getElementById("giftOccasionChips");
 giftOccasionChips.addEventListener("click", (e) => {
   const btn = e.target.closest(".chip");
@@ -1414,6 +1429,7 @@ onAuthStateChanged(auth, (user) => {
     startListeningReimburse();
     startListeningQuotas();
     startListeningVisits();
+    applyVisitUrlPrefill();
   } else {
     document.getElementById("app").style.display = "none";
     document.getElementById("loginScreen").style.display = "block";
