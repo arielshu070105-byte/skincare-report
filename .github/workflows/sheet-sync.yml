@@ -1,0 +1,23 @@
+name: 保養品雲端同步
+
+on:
+  workflow_dispatch: {}
+  # 手動測試通過、確認可以開始並行驗證期之後,再打開下面這段排程
+  # schedule:
+  #   - cron: "*/5 * * * *"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sheet-sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: node sync.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
