@@ -16,7 +16,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # firebase-admin 14.x要求node>=22,而@google-cloud/firestore是它的optionalDependency
+          # 且自己也要求node>=22——node20環境下npm會「安靜跳過」這個選用套件(不報錯,
+          # 只在require時才炸),本機測試用node24所以測不出來,一定要固定用22以上
+          node-version: "22"
       - run: npm ci
       - run: node sync.js
         env:
