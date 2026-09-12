@@ -42,17 +42,32 @@ async function getTodayColumn(sheets, dateStr) {
   return newCol;
 }
 
-async function addToRestockColumn(sheets, code, dateStr, delta) {
+// 一次對多個商品代號疊加寫入「進貨紀錄」當天欄位,用bulk read/一次batchUpdate取代「每個代號各自
+// 找欄+找列+讀值+寫值」(原本套組拆裝一次要動十幾個品項,等於十幾個代號各打4次API,很容易連續
+// 呼叫撞到Sheets API的每分鐘配額)。不管deltasByCode裡有幾個代號,固定只需要3次讀取API呼叫
+// (找當天欄位、讀整欄代號、讀當天欄位現有值)+最多2次寫入(新增日期欄表頭、批次寫回所有異動格)。
+async function addDeltasToRestockColumn(sheets, deltasByCode, dateStr) {
+  const codes = Object.keys(deltasByCode).filter((c) => deltasByCode[c]);
+  if (codes.length === 0) return;
   const col = await getTodayColumn(sheets, dateStr);
-  const row = await findRowByValue(sheets, "進貨紀錄", 1, code, 200);
-  if (!row) throw new Error(`進貨紀錄找不到商品代號: ${code}`);
-  const cellRange = `進貨紀錄!${colToLetter(col)}${row}`;
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: cellRange, valueRenderOption: "UNFORMATTED_VALUE" });
-  const existing = (res.data.values && res.data.values[0] && Number(res.data.values[0][0])) || 0;
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID, range: cellRange, valueInputOption: "RAW",
-    requestBody: { values: [[existing + delta]] },
+  const codeCol = await getColumn(sheets, "進貨紀錄", 1, 200);
+  const existingCol = await getColumn(sheets, "進貨紀錄", col, 200);
+  const dataForBatch = [];
+  for (const code of codes) {
+    const rowIdx = codeCol.findIndex((v, i) => i > 0 && String(v).trim() === String(code).trim());
+    if (rowIdx === -1) throw new Error(`進貨紀錄找不到商品代號: ${code}`);
+    const row = rowIdx + 1; // 轉1-based列號
+    const existing = Number(existingCol[rowIdx]) || 0;
+    dataForBatch.push({ range: `進貨紀錄!${colToLetter(col)}${row}`, values: [[existing + deltasByCode[code]]] });
+  }
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: "RAW", data: dataForBatch },
   });
+}
+
+async function addToRestockColumn(sheets, code, dateStr, delta) {
+  await addDeltasToRestockColumn(sheets, { [code]: delta }, dateStr);
 }
 
 function newSaleId() {
@@ -64,6 +79,16 @@ function newSaleId() {
 }
 
 async function writeSaleRows(sheets, dateVal, customer, items, saleId) {
+  // 套餐內含品項要各自查商品名稱——原本一個一個comp呼叫getProductName(各自findRowByValue+讀名稱,
+  // 2次API呼叫),10件組這種十幾樣內含品項的套組一次要打20幾次。改成先一次bulk讀整個商品B:C欄
+  // (代號+名稱)建成對照表,不管套組裡有幾樣內含品項都只需要這1次額外呼叫。
+  const hasCombo = items.some((it) => it.isCombo && it.components && it.components.length > 0);
+  let nameByCode = null;
+  if (hasCombo) {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "商品!B2:C200", valueRenderOption: "UNFORMATTED_VALUE" });
+    nameByCode = {};
+    for (const r of res.data.values || []) { if (r[0]) nameByCode[String(r[0]).trim()] = r[1] || r[0]; }
+  }
   const rows = [];
   for (const item of items) {
     rows.push([dateVal, customer, item.code, item.name, item.qty, item.unitPrice,
@@ -71,7 +96,7 @@ async function writeSaleRows(sheets, dateVal, customer, items, saleId) {
     if (item.isCombo && item.components && item.components.length > 0) {
       for (const comp of item.components) {
         const compQty = item.qty * comp.qty;
-        const compName = await getProductName(sheets, comp.code);
+        const compName = (nameByCode && nameByCode[String(comp.code).trim()]) || comp.code;
         rows.push([dateVal, customer, comp.code, compName, compQty, 0,
           `=IF(AND(E${"{ROW}"}<>"",F${"{ROW}"}<>""),E${"{ROW}"}*F${"{ROW}"},"")`, "手機App(套餐內含)", saleId]);
       }
@@ -142,11 +167,12 @@ async function applyRestock(sheets, action) {
 }
 
 async function applyAssembleKit(sheets, action) {
+  const deltas = {};
   for (const comp of action.components) {
-    const delta = -1 * action.qty * comp.qty;
-    await addToRestockColumn(sheets, comp.code, action.date, delta);
+    deltas[comp.code] = (deltas[comp.code] || 0) + -1 * action.qty * comp.qty;
   }
-  await addToRestockColumn(sheets, action.code, action.date, action.qty);
+  deltas[action.code] = (deltas[action.code] || 0) + action.qty;
+  await addDeltasToRestockColumn(sheets, deltas, action.date);
 }
 
 const CHINESE_NUMERALS = ["七", "八", "九", "十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十"];
@@ -186,15 +212,24 @@ async function applyPlantDiamond(sheets, action) {
   }
 
   if (!slotCol) {
-    // 不分輪次往J欄以後延伸
-    for (let n = 1; n <= 200; n++) {
-      const vc = 9 + n;
-      const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `種鑽紀錄!${colToLetter(vc)}${row}`, valueRenderOption: "UNFORMATTED_VALUE" });
-      const existing = res.data.values && res.data.values[0] && res.data.values[0][0];
-      if (!existing) {
+    // 不分輪次往J欄以後延伸——原本每一欄分開讀(逐欄「有沒有值」+「表頭有沒有值」各一次API呼叫),
+    // 客戶種很多顆時最壞情況會连續打到快400次API呼叫,很容易撞到Sheets API的每分鐘讀取配額。
+    // 改成一次用batchGet把「資料列」跟「表頭列」一段寬範圍一起讀回來,在記憶體裡找第一個空格,
+    // 不管要延伸到多遠,固定只需要1次讀取(+最多2次寫入),對應compute-performance.ps1當初改成
+    // bulk read的同一個效能守則。
+    const maxExtend = 200;
+    const dataRange = `種鑽紀錄!${colToLetter(10)}${row}:${colToLetter(9 + maxExtend)}${row}`;
+    const headerRange = `種鑽紀錄!${colToLetter(10)}1:${colToLetter(9 + maxExtend)}1`;
+    const batchRes = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: SPREADSHEET_ID, ranges: [dataRange, headerRange], valueRenderOption: "UNFORMATTED_VALUE",
+    });
+    const dataVals = (batchRes.data.valueRanges[0].values && batchRes.data.valueRanges[0].values[0]) || [];
+    const headerVals = (batchRes.data.valueRanges[1].values && batchRes.data.valueRanges[1].values[0]) || [];
+    for (let n = 1; n <= maxExtend; n++) {
+      if (!dataVals[n - 1]) {
+        const vc = 9 + n;
         slotCol = vc;
-        const headerRes = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `種鑽紀錄!${colToLetter(vc)}1`, valueRenderOption: "UNFORMATTED_VALUE" });
-        const headerExisting = headerRes.data.values && headerRes.data.values[0] && headerRes.data.values[0][0];
+        const headerExisting = headerVals[n - 1];
         if (!headerExisting) {
           const label = n <= CHINESE_NUMERALS.length ? `第${CHINESE_NUMERALS[n - 1]}顆` : `第${n + 6}顆`;
           await sheets.spreadsheets.values.update({
