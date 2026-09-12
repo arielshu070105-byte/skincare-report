@@ -229,4 +229,4 @@ async function applyAction(action) {
   }
 }
 
-module.exports = { applyAction, getProductName, findRowByValue, getColumn, getTodayColumn, addToRestockColumn };
+module.exports = { applyAction, getProductName, findRowByValue, getColumn, getTodayColumn, addToRestockColumn, deleteRows };

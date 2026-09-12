@@ -1,6 +1,5 @@
-const { applyAction } = require("./lib/apply-action");
+const { applyAction, deleteRows, findRowByValue } = require("./lib/apply-action");
 const { getSheets, SPREADSHEET_ID } = require("./lib/sheets-client");
-const { findRowByValue } = require("./lib/apply-action");
 
 async function getRow(customer) {
   const sheets = getSheets();
@@ -10,7 +9,16 @@ async function getRow(customer) {
   return { row, values: res.data.values[0] };
 }
 
-async function main() {
+async function cleanup() {
+  const sheets = getSheets();
+  const row = await findRowByValue(sheets, "種鑽紀錄", 2, "測試種鑽客戶", 500);
+  if (row) {
+    await deleteRows(sheets, "種鑽紀錄", [row]);
+    console.log("已清除測試客戶列(row " + row + ")");
+  }
+}
+
+async function run() {
   const today = new Date().toISOString().slice(0, 10);
 
   // 1. 全新客人 - trial
@@ -36,5 +44,15 @@ async function main() {
   const sheets = getSheets();
   const header = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "種鑽紀錄!J1", valueRenderOption: "UNFORMATTED_VALUE" });
   console.log("col J header (should be 第七顆):", JSON.stringify(header.data.values));
+}
+
+async function main() {
+  // 用try/finally包住:就算中途炸掉(例如API配額暫時超過),也一定會清掉測試客戶列,
+  // 不會把半成品的測試資料留在正式試算表裡(之前的版本沒做這步,曾經真的留了好幾天沒被發現)
+  try {
+    await run();
+  } finally {
+    await cleanup().catch((e) => console.error("清除失敗,需要人工檢查『測試種鑽客戶』這一列:", e.message));
+  }
 }
 main().catch((e) => { console.error("FAILED:", e.message, e); process.exit(1); });
