@@ -546,17 +546,27 @@ let diamondActionMode = "plant";
 
 // 送出的動作先存進雲端(pendingActions),真正寫進電腦的Excel要等背景同步程式下一輪(目前30秒)才會發生。
 // 這個函式監聽剛剛那一筆的 synced 欄位,確認真的寫進 Excel 之後才顯示「已同步」,而不是只顯示「已送出」
-// 就讓人誤以為資料已經到Excel了。40秒內沒等到同步確認,就提示使用者去檢查電腦Excel是否開著。
+// 就讓人誤以為資料已經到Excel了。
+// 分兩段逾時(2026-09-26改的):電腦沒開機時,雲端備援(cron-job.org觸發GitHub Actions)大約1-3分鐘內
+// 會自動接手處理,不算異常——40秒還沒同步先顯示中性的「同步中」提示,不要嚇到使用者;
+// 真的超過4分鐘都沒同步,才顯示紅色警告提示去檢查電腦。
+const SYNC_SLOW_HINT_MS = 40000;
+const SYNC_TIMEOUT_MS = 240000;
 function waitForSync(docRef, statusEl, successText) {
   if (!docRef || !statusEl) return;
   let unsub = null;
+  const slowHintId = setTimeout(() => {
+    statusEl.textContent = "已送出,同步中…如果電腦沒開機,雲端備援大約1-3分鐘內會自動處理,資料不會遺失";
+    statusEl.className = "status-msg";
+  }, SYNC_SLOW_HINT_MS);
   const timeoutId = setTimeout(() => {
     if (unsub) unsub();
-    statusEl.textContent = "已送出,但超過40秒還沒同步確認,請確認電腦Excel是否開著、背景程式是否在跑";
+    statusEl.textContent = "已送出,但超過4分鐘還沒同步確認,請確認電腦Excel是否開著、背景程式是否在跑";
     statusEl.className = "status-msg err";
-  }, 40000);
+  }, SYNC_TIMEOUT_MS);
   unsub = onSnapshot(docRef, (snap) => {
     if (snap.exists() && snap.data().synced) {
+      clearTimeout(slowHintId);
       clearTimeout(timeoutId);
       unsub();
       statusEl.textContent = successText || "✅ 已同步到 Excel";
@@ -570,17 +580,22 @@ function waitForSyncMultiple(docRefs, statusEl, successText) {
   if (!docRefs || docRefs.length === 0 || !statusEl) return;
   let remaining = docRefs.length;
   const unsubs = [];
+  const slowHintId = setTimeout(() => {
+    statusEl.textContent = "已送出,同步中…如果電腦沒開機,雲端備援大約1-3分鐘內會自動處理,資料不會遺失";
+    statusEl.className = "status-msg";
+  }, SYNC_SLOW_HINT_MS);
   const timeoutId = setTimeout(() => {
     unsubs.forEach((u) => u());
-    statusEl.textContent = `已送出,但超過40秒還有${remaining}項還沒同步確認,請確認電腦Excel是否開著、背景程式是否在跑`;
+    statusEl.textContent = `已送出,但超過4分鐘還有${remaining}項還沒同步確認,請確認電腦Excel是否開著、背景程式是否在跑`;
     statusEl.className = "status-msg err";
-  }, 40000);
+  }, SYNC_TIMEOUT_MS);
   docRefs.forEach((docRef) => {
     const unsub = onSnapshot(docRef, (snap) => {
       if (snap.exists() && snap.data().synced) {
         unsub();
         remaining--;
         if (remaining === 0) {
+          clearTimeout(slowHintId);
           clearTimeout(timeoutId);
           statusEl.textContent = successText || "✅ 已同步到 Excel";
           statusEl.className = "status-msg ok";
