@@ -163,6 +163,7 @@
   .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-soft); flex-shrink: 0; transition: background 0.2s ease; box-shadow: 0 0 0 3px rgba(0,0,0,0); }
   .status-dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(111,185,143,0.7); }
   .status-dot.stale { background: var(--danger); box-shadow: 0 0 8px rgba(224,121,111,0.6); }
+  .stuck-banner { display: flex; align-items: center; gap: 6px; background: var(--danger); color: #fff; font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 14px; margin: 0 0 14px; text-align: center; justify-content: center; }
 
   .card {
     background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius);
@@ -333,6 +334,8 @@
         <div class="status-dot" id="statusDot" title="連線狀態"></div>
       </div>
     </div>
+
+    <div class="stuck-banner" id="stuckWarningBanner" style="display:none;">⚠️ <span id="stuckWarningText"></span></div>
 
     <div class="tab-view active" id="tabSale">
       <div class="card">
@@ -523,7 +526,7 @@ const KIT_OPTIONS = Object.keys(ASSEMBLY_KITS).map((code) => {
   return { code, label: p ? p.name : code, isCombo: false };
 });
 import {
-  collection, addDoc, serverTimestamp, doc, getDoc, setDoc, onSnapshot,
+  collection, addDoc, serverTimestamp, doc, getDoc, setDoc, onSnapshot, query, where,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -652,6 +655,50 @@ function updateStatusDot() {
 }
 setInterval(updateStatusDot, 30 * 1000);
 
+// 2026-09-26新增:偵測「本機+雲端備援兩邊都沒在處理資料」的真正異常狀況。
+// 原本靠 performanceSnapshot.updatedAt 判斷新不新(上面SYNC_STALE_MS那段),但自從加了
+// cron-job.org每分鐘觸發GitHub Actions之後,即使本機完全沒開機、也沒有任何新資料要處理,
+// GitHub Actions每次還是會照常重新算一次performanceSnapshot並更新updatedAt——這個時間戳記
+// 永遠看起來是新的,原本的偵測邏輯已經失效。改成直接看有沒有pendingActions卡著沒被任何一邊
+// 認領(synced還是false),卡超過10分鐘才代表兩套系統真的都沒在運作,才是真正該提醒使用者的狀況。
+let stuckUnsubscribe = null;
+let oldestUnsyncedAt = null;
+const STUCK_THRESHOLD_MS = 10 * 60 * 1000; // 10分鐘
+
+function updateStuckBanner() {
+  const banner = document.getElementById("stuckWarningBanner");
+  const text = document.getElementById("stuckWarningText");
+  if (!banner || !text) return;
+  if (!oldestUnsyncedAt) { banner.style.display = "none"; return; }
+  const ageMs = Date.now() - oldestUnsyncedAt.getTime();
+  if (ageMs > STUCK_THRESHOLD_MS) {
+    const mins = Math.floor(ageMs / 60000);
+    text.textContent = `有資料已經 ${mins} 分鐘還沒同步,電腦本機跟雲端備援可能都沒在運作,請檢查`;
+    banner.style.display = "flex";
+  } else {
+    banner.style.display = "none";
+  }
+}
+setInterval(updateStuckBanner, 30 * 1000);
+
+function watchStuckActions() {
+  if (stuckUnsubscribe) stuckUnsubscribe();
+  stuckUnsubscribe = onSnapshot(
+    query(collection(db, "pendingActions"), where("synced", "==", false)),
+    (snap) => {
+      let oldest = null;
+      snap.forEach((d) => {
+        const c = d.data().createdAt;
+        const t = c && c.toDate ? c.toDate() : null;
+        if (t && (!oldest || t < oldest)) oldest = t;
+      });
+      oldestUnsyncedAt = oldest;
+      updateStuckBanner();
+    },
+    (e) => { console.error(e); }
+  );
+}
+
 async function onLoggedIn(user) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
@@ -667,6 +714,8 @@ async function onLoggedIn(user) {
       setAvatarImage(profileSnap.data().photoDataUrl);
     }
   } catch (e) { console.error(e); }
+
+  watchStuckActions();
 
   if (perfUnsubscribe) perfUnsubscribe();
   perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
