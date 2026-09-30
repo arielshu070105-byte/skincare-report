@@ -45,8 +45,30 @@ async function syncPendingActions() {
   }
 }
 
+// 2026-09-30發現的重大bug:這支腳本每次被cron-job.org觸發(~1分鐘一次)都會無條件把這裡算出來
+// 的資料蓋掉Firestore performanceSnapshot/latest,但這裡的資料是從Google試算表算出來的,而
+// Google試算表**不是**Excel的完整鏡像(本機處理的動作,例如組裝/拆解套組,不會回寫進Google試算
+// 表——這是Phase 4/5並行架構本來就知道、記錄過的單向落差)。結果變成:本機系統剛把正確資料寫進
+// Firestore,不到1分鐘後這支腳本就用試算表裡過時的資料蓋回去,跟本機系統自己的30秒週期互相拉扯,
+// 造成手機看到規律性的「跳回舊資料又自動修正」——一整天原本以為是COM連線不穩定,後來才找到真正
+// 原因是這裡。
+// 修法:寫入前先看現有snapshot的updatedAt夠不夠新——如果很新(代表本機系統本來就活著、剛更新過,
+// Excel是比Google試算表更完整、更即時的資料來源),就不要用這裡算出來的(可能不完整的)資料蓋過
+// 去;只有現有資料已經過期(代表本機系統這段期間沒在跑,電腦可能沒開機),才輪到這份雲端算出來的
+// 資料當安全網頂上去。門檻抓90秒,比本機30秒週期留寬裕的緩衝,又比GitHub Actions排程本身的執行
+// 間隔短很多,不會誤判。
+const LOCAL_FRESH_THRESHOLD_MS = 90 * 1000;
+
 async function pushSnapshot() {
   const db = getDb();
+  const existing = await db.collection("performanceSnapshot").doc("latest").get();
+  if (existing.exists && existing.data().updatedAt) {
+    const ageMs = Date.now() - existing.data().updatedAt.toDate().getTime();
+    if (ageMs < LOCAL_FRESH_THRESHOLD_MS) {
+      console.log(`  - 現有績效資料${Math.round(ageMs / 1000)}秒前才更新過(本機系統顯然還活著),Excel資料比Google試算表更完整,這次不覆蓋`);
+      return;
+    }
+  }
   const data = await computeSnapshot();
   await db.collection("performanceSnapshot").doc("latest").set({
     dailyTotals: data.dailyTotals || [],
