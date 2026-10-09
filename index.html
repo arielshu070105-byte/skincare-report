@@ -386,7 +386,7 @@
       </div>
 
       <div class="card">
-        <h2>最近庫存修正紀錄</h2>
+        <h2>最近庫存修正紀錄(近10筆)</h2>
         <div id="adjustHistoryContent"></div>
       </div>
 
@@ -736,7 +736,7 @@ function describeAdjustAction(a) {
 function renderAdjustHistory(docs) {
   const el = document.getElementById("adjustHistoryContent");
   if (!el) return;
-  const relevant = docs.filter((d) => ["restock", "stockAdjust", "assembleKit"].includes(d.type));
+  const relevant = docs.filter((d) => ["restock", "stockAdjust", "assembleKit"].includes(d.type)).slice(0, 10);
   if (relevant.length === 0) {
     el.innerHTML = `<div class="list-empty">還沒有庫存修正紀錄。</div>`;
     return;
