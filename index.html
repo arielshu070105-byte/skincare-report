@@ -336,6 +336,7 @@
     </div>
 
     <div class="stuck-banner" id="stuckWarningBanner" style="display:none;">⚠️ <span id="stuckWarningText"></span></div>
+    <div class="stuck-banner" id="consistencyWarningBanner" style="display:none;">⚠️ <span id="consistencyWarningText"></span></div>
 
     <div class="tab-view active" id="tabSale">
       <div class="card">
@@ -766,6 +767,32 @@ function watchAdjustHistory() {
   );
 }
 
+// ── 每日一致性檢查警告(2026-10-09新增) ─────────
+// 本機每天會自動核對一次Excel跟Google試算表的庫存是不是一致(見sync-watcher.js的
+// checkConsistencyOnce),結果寫在Firestore的system/consistencyAlert,這裡監聽、顯示。
+let consistencyUnsubscribe = null;
+function watchConsistencyAlert() {
+  if (consistencyUnsubscribe) consistencyUnsubscribe();
+  consistencyUnsubscribe = onSnapshot(
+    doc(db, "system", "consistencyAlert"),
+    (snap) => {
+      const banner = document.getElementById("consistencyWarningBanner");
+      const text = document.getElementById("consistencyWarningText");
+      if (!banner || !text) return;
+      const data = snap.exists() ? snap.data() : null;
+      if (data && data.hasAlert && (data.mismatches || []).length > 0) {
+        const names = data.mismatches.slice(0, 3).map((m) => m.name || m.code).join("、");
+        const more = data.mismatches.length > 3 ? `等${data.mismatches.length}項` : "";
+        text.textContent = `每日核對發現庫存數字對不上:${names}${more},手機看到的可能不是最新資料,請找Claude確認`;
+        banner.style.display = "flex";
+      } else {
+        banner.style.display = "none";
+      }
+    },
+    (e) => { console.error(e); }
+  );
+}
+
 async function onLoggedIn(user) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
@@ -784,6 +811,7 @@ async function onLoggedIn(user) {
 
   watchStuckActions();
   watchAdjustHistory();
+  watchConsistencyAlert();
 
   if (perfUnsubscribe) perfUnsubscribe();
   perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
