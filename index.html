@@ -386,6 +386,11 @@
       </div>
 
       <div class="card">
+        <h2>最近庫存修正紀錄</h2>
+        <div id="adjustHistoryContent"></div>
+      </div>
+
+      <div class="card">
         <h2>庫存檢表</h2>
         <div id="stockListContent"></div>
       </div>
@@ -526,7 +531,7 @@ const KIT_OPTIONS = Object.keys(ASSEMBLY_KITS).map((code) => {
   return { code, label: p ? p.name : code, isCombo: false };
 });
 import {
-  collection, addDoc, serverTimestamp, doc, getDoc, setDoc, onSnapshot, query, where,
+  collection, addDoc, serverTimestamp, doc, getDoc, setDoc, onSnapshot, query, where, orderBy, limit,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -699,6 +704,68 @@ function watchStuckActions() {
   );
 }
 
+// ── 最近庫存修正紀錄(2026-10-09新增) ─────────
+// 只讀不改:庫存修正(盤點修正/進貨/組裝/拆解)的語意比銷售複雜(「盤點修正為」是設成絕對值,
+// 「進貨+N」是疊加,逆向操作不像銷售那樣單純刪掉明細列就好),先做成讓使用者能看到最近送出了
+// 什麼、送出的數字對不對,方便早點發現送錯(例如2026-10-09那次送出5結果變成10的事故),
+// 之後真的需要修改/刪除這裡的紀錄,直接跟Claude說要改哪一筆即可。
+let adjustHistoryUnsubscribe = null;
+let adjustProductNameByCode = null;
+function getAdjustProductName(code) {
+  if (!adjustProductNameByCode) {
+    adjustProductNameByCode = {};
+    PRODUCTS.forEach((p) => { adjustProductNameByCode[p.code] = p.name; });
+  }
+  return adjustProductNameByCode[code] || code;
+}
+function describeAdjustAction(a) {
+  const name = escapeHtml(getAdjustProductName(a.code));
+  if (a.type === "restock") {
+    const qty = Number(a.qty) || 0;
+    return `${qty >= 0 ? "進貨" : "進貨修正"} ${name} ${qty >= 0 ? "+" : ""}${qty}`;
+  }
+  if (a.type === "stockAdjust") {
+    return `盤點修正為 ${name} → ${a.targetQty}`;
+  }
+  if (a.type === "assembleKit") {
+    const qty = Number(a.qty) || 0;
+    return `${qty >= 0 ? "組裝" : "拆解"} ${name} x${Math.abs(qty)}`;
+  }
+  return `${a.type} ${name}`;
+}
+function renderAdjustHistory(docs) {
+  const el = document.getElementById("adjustHistoryContent");
+  if (!el) return;
+  const relevant = docs.filter((d) => ["restock", "stockAdjust", "assembleKit"].includes(d.type));
+  if (relevant.length === 0) {
+    el.innerHTML = `<div class="list-empty">還沒有庫存修正紀錄。</div>`;
+    return;
+  }
+  el.innerHTML = relevant.map((r) => {
+    const t = r.createdAt && r.createdAt.toDate ? r.createdAt.toDate() : null;
+    const timeStr = t ? t.toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : (r.date || "");
+    return `
+      <div class="sale-record">
+        <div class="sale-record-main">
+          <div class="sale-record-items">${describeAdjustAction(r)}</div>
+          <div class="sale-record-date">${escapeHtml(timeStr)}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+function watchAdjustHistory() {
+  if (adjustHistoryUnsubscribe) adjustHistoryUnsubscribe();
+  adjustHistoryUnsubscribe = onSnapshot(
+    query(collection(db, "pendingActions"), orderBy("createdAt", "desc"), limit(30)),
+    (snap) => {
+      const docs = snap.docs.map((d) => d.data());
+      renderAdjustHistory(docs);
+    },
+    (e) => { console.error(e); }
+  );
+}
+
 async function onLoggedIn(user) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
@@ -716,6 +783,7 @@ async function onLoggedIn(user) {
   } catch (e) { console.error(e); }
 
   watchStuckActions();
+  watchAdjustHistory();
 
   if (perfUnsubscribe) perfUnsubscribe();
   perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
