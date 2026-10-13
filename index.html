@@ -337,6 +337,7 @@
 
     <div class="stuck-banner" id="stuckWarningBanner" style="display:none;">⚠️ <span id="stuckWarningText"></span></div>
     <div class="stuck-banner" id="consistencyWarningBanner" style="display:none;">⚠️ <span id="consistencyWarningText"></span></div>
+    <div class="stuck-banner" id="sheetSyncWarningBanner" style="display:none;">⚠️ <span id="sheetSyncWarningText"></span></div>
 
     <div class="tab-view active" id="tabSale">
       <div class="card">
@@ -793,6 +794,30 @@ function watchConsistencyAlert() {
   );
 }
 
+// ── Google試算表同步失敗警告(2026-10-13新增) ─────────
+// 本機寫進Google試算表失敗時(見sync-watcher.js的reportSheetSyncStatus),結果寫在
+// Firestore的system/sheetSyncAlert,這裡監聽、顯示——跟一致性檢查警告同一套做法。
+let sheetSyncUnsubscribe = null;
+function watchSheetSyncAlert() {
+  if (sheetSyncUnsubscribe) sheetSyncUnsubscribe();
+  sheetSyncUnsubscribe = onSnapshot(
+    doc(db, "system", "sheetSyncAlert"),
+    (snap) => {
+      const banner = document.getElementById("sheetSyncWarningBanner");
+      const text = document.getElementById("sheetSyncWarningText");
+      if (!banner || !text) return;
+      const data = snap.exists() ? snap.data() : null;
+      if (data && data.hasAlert) {
+        text.textContent = `同步進Google試算表失敗(${escapeHtml(data.actionType || "")} ${escapeHtml(data.code || "")}),Excel本身沒問題,但雲端備援可能跟不上,請找Claude確認`;
+        banner.style.display = "flex";
+      } else {
+        banner.style.display = "none";
+      }
+    },
+    (e) => { console.error(e); }
+  );
+}
+
 async function onLoggedIn(user) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
@@ -812,6 +837,7 @@ async function onLoggedIn(user) {
   watchStuckActions();
   watchAdjustHistory();
   watchConsistencyAlert();
+  watchSheetSyncAlert();
 
   if (perfUnsubscribe) perfUnsubscribe();
   perfUnsubscribe = onSnapshot(doc(db, "performanceSnapshot", "latest"), (snap) => {
