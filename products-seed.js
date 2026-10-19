@@ -17,7 +17,7 @@ export const PRODUCTS = [
   { code: "9號", name: "滋潤BB霜(50ml)", price: 733 },
   { code: "鑽石面膜", name: "鑽石面膜", price: 4398 },
   { code: "淡斑美白", name: "雪顏淨白霜(1set-20g*2ea)", price: 1833 },
-  { code: "洗臉巾", name: "洗臉巾", price: 50 },
+  { code: "洗臉巾", name: "洗臉巾", price: 70 },
   { code: "1號面膜", name: "水潤去角質面膜(200ml)", price: 1711 },
   { code: "2號面膜", name: "水潤滋養面膜(200ml)", price: 1711 },
   { code: "小水", name: "小瓶化妝水", price: 300 },
