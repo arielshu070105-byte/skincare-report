@@ -157,6 +157,13 @@
   .disease-cases { margin-top: 6px; font-size: 12px; color: var(--ink-soft); line-height: 1.7; }
   .disease-cases .case-note { color: var(--ink); }
 
+  .client-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; background: none; text-align: left; padding: 12px 2px; border-bottom: 1px solid var(--line); color: var(--ink); }
+  .client-row:last-child { border-bottom: none; }
+  .client-row .c-name { font-weight: 700; font-size: 14.5px; }
+  .client-row .c-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .client-row .c-amount { font-weight: 900; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .client-total { display: flex; justify-content: space-between; font-weight: 900; font-size: 15px; padding: 12px 2px 4px; border-top: 2px solid var(--line); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
   .claim-line { background: var(--pill-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 4px 12px 12px; margin-bottom: 10px; position: relative; }
   .claim-line .remove-line-btn { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--danger); font-size: 15px; display: flex; align-items: center; justify-content: center; }
   .claim-line .line-title { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin: 10px 0 0; }
@@ -220,6 +227,15 @@
       <button type="button" class="chip" data-tab="search" aria-pressed="true">查詢</button>
       <button type="button" class="chip" data-tab="add" aria-pressed="false">新增理賠</button>
       <button type="button" class="chip" data-tab="list" aria-pressed="false">全部記錄</button>
+      <button type="button" class="chip" data-tab="clients" aria-pressed="false">客戶統計</button>
+    </div>
+
+    <div class="tab-view" id="tabClients">
+    <div class="card">
+      <h2>客戶理賠金額</h2>
+      <p style="margin:-6px 0 12px;font-size:12.5px">只加總「已理賠」和「部分理賠」的金額。點客戶可以看他的理賠明細。</p>
+      <div id="clientStats"></div>
+    </div>
     </div>
 
     <div class="tab-view active" id="tabSearch">
@@ -314,6 +330,7 @@ pageTabs.addEventListener("click", (e) => {
   document.getElementById("tabSearch").classList.toggle("active", btn.dataset.tab === "search");
   document.getElementById("tabAdd").classList.toggle("active", btn.dataset.tab === "add");
   document.getElementById("tabList").classList.toggle("active", btn.dataset.tab === "list");
+  document.getElementById("tabClients").classList.toggle("active", btn.dataset.tab === "clients");
 });
 
 // 比對時忽略空白跟大小寫,打「醫療」也能找到「XX醫療終身保險」
@@ -577,6 +594,37 @@ function renderList() {
   filtered.sort((a, b) => (a.date < b.date ? 1 : -1)).forEach((c) => list.appendChild(buildClaimCard(c)));
 }
 
+// ---- 客戶統計 ----
+function renderClientStats() {
+  const out = document.getElementById("clientStats");
+  if (!entries.length) { out.innerHTML = '<div class="empty">還沒有理賠記錄。</div>'; return; }
+  const byClient = {};
+  groupClaims().forEach((c) => {
+    const key = c.name || "";
+    const s = (byClient[key] = byClient[key] || { name: key, claims: 0, paid: 0, pending: 0 });
+    s.claims += 1;
+    c.products.forEach((p) => {
+      if (p.result === "已理賠" || p.result === "部分理賠") s.paid += p.amount || 0;
+    });
+    if (c.products.some((p) => p.result === "審核中")) s.pending += 1;
+  });
+  const rows = Object.values(byClient).sort((a, b) => b.paid - a.paid || b.claims - a.claims);
+  const total = rows.reduce((s, r) => s + r.paid, 0);
+  out.innerHTML = rows.map((r) =>
+    '<button type="button" class="client-row" data-name="' + escapeHtml(r.name) + '"><div><div class="c-name">' + escapeHtml(r.name || "(未填姓名)") + '</div>' +
+    '<div class="c-sub">理賠 ' + r.claims + ' 次' + (r.pending ? ' · 審核中 ' + r.pending : '') + '</div></div>' +
+    '<div class="c-amount">NT$ ' + r.paid.toLocaleString("zh-Hant") + '</div></button>').join("") +
+    '<div class="client-total"><span>' + rows.length + ' 位客戶合計</span><span>NT$ ' + total.toLocaleString("zh-Hant") + '</span></div>';
+}
+document.getElementById("clientStats").addEventListener("click", (e) => {
+  const row = e.target.closest(".client-row");
+  if (!row || !row.dataset.name) return;
+  [...pageTabs.children].find((c) => c.dataset.tab === "list").click();
+  document.getElementById("listSearch").value = row.dataset.name;
+  listTerm = norm(row.dataset.name);
+  setResultFilter("all");
+});
+
 function startListening() {
   if (unsubscribeList) unsubscribeList();
   const q = query(collection(db, COLLECTION), orderBy("createdAt", "desc"));
@@ -584,6 +632,7 @@ function startListening() {
     entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     refreshDatalists();
     updateStats();
+    renderClientStats();
     renderSearch();
     renderList();
   }, (e) => {
