@@ -121,6 +121,14 @@
   .greeting-right-top { display: flex; align-items: center; gap: 6px; }
   .header-icon-btn { width: 26px; height: 26px; border-radius: 50%; background: var(--pill-bg); border: 1px solid var(--card-border); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; padding: 0; }
 
+  .stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stat-tile { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 12px 10px; text-align: center; box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+  .stat-tile[role="button"] { cursor: pointer; }
+  .stat-tile .num { font-size: 22px; font-weight: 900; color: var(--ink); line-height: 1.1; }
+  .stat-tile.warn .num { color: var(--danger); }
+  .stat-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .export-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
   .export-row input[type="month"] { flex: 1; min-width: 120px; margin: 0; min-height: 44px; }
@@ -201,6 +209,11 @@
       </div>
     </div>
 
+    <div class="stats-row">
+      <div class="stat-tile warn" id="statPendingTile" onclick="showPending()" role="button" tabindex="0"><div class="num" id="statPending">0</div><div class="label">審核中</div></div>
+      <div class="stat-tile"><div class="num" id="statTotal">0</div><div class="label">全部記錄</div></div>
+    </div>
+
     <div class="chip-group" id="pageTabs" role="group" aria-label="頁面切換" style="margin-bottom:18px">
       <button type="button" class="chip" data-tab="search" aria-pressed="true">查詢</button>
       <button type="button" class="chip" data-tab="add" aria-pressed="false">新增理賠</button>
@@ -243,6 +256,13 @@
         <span class="export-range-sep">至</span>
         <input type="month" id="exportMonthTo">
         <button type="button" class="btn-sm" onclick="exportMonth()">匯出 Excel</button>
+      </div>
+      <div class="filter-row" id="resultFilter" role="group" aria-label="依結果篩選">
+        <button type="button" class="chip" data-filter="all" aria-pressed="true">全部</button>
+        <button type="button" class="chip" data-filter="審核中" aria-pressed="false">審核中</button>
+        <button type="button" class="chip" data-filter="已理賠" aria-pressed="false">已理賠</button>
+        <button type="button" class="chip" data-filter="部分理賠" aria-pressed="false">部分理賠</button>
+        <button type="button" class="chip" data-filter="拒賠" aria-pressed="false">拒賠</button>
       </div>
       <input type="text" id="listSearch" placeholder="搜尋客戶、商品、病名…" style="margin-bottom:14px">
       <div id="list"></div>
@@ -442,7 +462,33 @@ function renderSearch() {
 
 // ---- 全部記錄 ----
 let listTerm = "";
+let activeResult = "all";
 document.getElementById("listSearch").addEventListener("input", (e) => { listTerm = norm(e.target.value); renderList(); });
+
+const resultFilter = document.getElementById("resultFilter");
+function setResultFilter(value) {
+  [...resultFilter.children].forEach((c) => c.setAttribute("aria-pressed", c.dataset.filter === value ? "true" : "false"));
+  activeResult = value;
+  renderList();
+}
+resultFilter.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (btn) setResultFilter(btn.dataset.filter);
+});
+
+// 點「審核中」數字 → 跳到全部記錄並只顯示審核中
+window.showPending = function () {
+  [...pageTabs.children].find((c) => c.dataset.tab === "list").click();
+  setResultFilter("審核中");
+};
+document.getElementById("statPendingTile").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.showPending(); }
+});
+
+function updateStats() {
+  document.getElementById("statPending").textContent = entries.filter((e) => e.result === "審核中").length;
+  document.getElementById("statTotal").textContent = entries.length;
+}
 
 function buildEntryCard(entry) {
   const wrap = document.createElement("details");
@@ -494,7 +540,9 @@ function buildEntryCard(entry) {
 function renderList() {
   const list = document.getElementById("list");
   list.innerHTML = "";
-  const filtered = entries.filter((e) => !listTerm || [e.name, e.product, e.disease, e.note].some((v) => norm(v).includes(listTerm)));
+  const filtered = entries.filter((e) =>
+    (activeResult === "all" || e.result === activeResult) &&
+    (!listTerm || [e.name, e.product, e.disease, e.note].some((v) => norm(v).includes(listTerm))));
   if (!filtered.length) {
     list.innerHTML = '<div class="empty">' + (entries.length ? "沒有符合條件的記錄。" : "還沒有理賠記錄,到「新增理賠」開始登記。") + '</div>';
     return;
@@ -508,6 +556,7 @@ function startListening() {
   unsubscribeList = onSnapshot(q, (snap) => {
     entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     refreshDatalists();
+    updateStats();
     renderSearch();
     renderList();
   }, (e) => {
