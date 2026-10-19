@@ -386,6 +386,8 @@ window.submitClaim = async function () {
     date: document.getElementById("a-date").value || todayISO(),
     name: document.getElementById("a-name").value.trim(),
     disease,
+    // 同一次送件的多個商品共用 claimId,全部記錄才能合併成一筆顯示
+    claimId: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
   };
   statusEl.textContent = "送出中…"; statusEl.className = "status-msg";
   try {
@@ -397,7 +399,7 @@ window.submitClaim = async function () {
     document.getElementById("a-date").value = todayISO();
     claimLines.innerHTML = "";
     addClaimLine();
-    statusEl.textContent = "已送出 " + lines.length + " 筆"; statusEl.className = "status-msg ok";
+    statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
     setTimeout(() => { statusEl.textContent = ""; }, 2500);
   } catch (e) {
     statusEl.textContent = "送出失敗:" + e.message; statusEl.className = "status-msg err";
@@ -485,52 +487,70 @@ document.getElementById("statPendingTile").addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.showPending(); }
 });
 
-function updateStats() {
-  document.getElementById("statPending").textContent = entries.filter((e) => e.result === "審核中").length;
-  document.getElementById("statTotal").textContent = entries.length;
+// 一次送件(同客戶、同病名)動用多個商品時,資料庫裡是多份文件,這裡合併回一筆。
+// 舊資料沒有 claimId,用 日期+姓名+病名 當作同一次送件
+function groupClaims() {
+  const groups = {};
+  entries.forEach((e) => {
+    const key = e.claimId || [e.date, e.name, e.disease].join("|");
+    (groups[key] = groups[key] || { date: e.date, name: e.name, disease: e.disease, products: [] }).products.push(e);
+  });
+  return Object.values(groups);
 }
 
-function buildEntryCard(entry) {
+function updateStats() {
+  const claims = groupClaims();
+  document.getElementById("statPending").textContent = claims.filter((c) => c.products.some((p) => p.result === "審核中")).length;
+  document.getElementById("statTotal").textContent = claims.length;
+}
+
+function buildClaimCard(claim) {
   const wrap = document.createElement("details");
   wrap.className = "entry";
-  const sub = [entry.date, entry.disease];
-  if (entry.name) sub.push(entry.name);
-  if (entry.amount) sub.push("NT$ " + entry.amount.toLocaleString("zh-Hant"));
-  wrap.innerHTML = '<summary><div class="entry-top"><span class="entry-name">' + escapeHtml(entry.product) + '</span>' +
-    '<span class="stamp rs-' + entry.result + '">' + entry.result + '</span></div>' +
-    '<div class="entry-sub">' + sub.map((t) => '<span>' + escapeHtml(t) + '</span>').join("") + '</div></summary>';
+  const results = RESULTS.filter((r) => claim.products.some((p) => p.result === r));
+  const sent = claim.products.map((p) => p.product + (claim.products.length > 1 ? "(" + p.result + ")" : "")).join("、");
+  wrap.innerHTML = '<summary><div class="entry-top"><span class="entry-name">' + escapeHtml(claim.name || "(未填姓名)") + '</span>' +
+    '<span class="disease-stamps">' + results.map((r) => '<span class="stamp rs-' + r + '">' + r + '</span>').join("") + '</span></div>' +
+    '<div class="entry-sub"><span>' + escapeHtml(claim.date) + '</span><span>' + escapeHtml(claim.disease) + '</span></div>' +
+    '<div class="entry-sub"><span>送出:' + escapeHtml(sent) + '</span></div></summary>';
 
   const detail = document.createElement("div");
   detail.className = "entry-detail";
   detail.innerHTML =
-    '<div class="field-row"><div><label>送件日期</label><input type="date" class="e-date" value="' + entry.date + '"></div>' +
-    '<div><label>客戶姓名</label><input type="text" class="e-name" value="' + escapeHtml(entry.name || "") + '"></div></div>' +
-    '<label>病名 / 事故</label><input type="text" class="e-disease" list="diseaseOptions" value="' + escapeHtml(entry.disease) + '">' +
-    claimFieldsHtml(entry) +
+    '<div class="field-row"><div><label>送件日期</label><input type="date" class="e-date" value="' + claim.date + '"></div>' +
+    '<div><label>客戶姓名</label><input type="text" class="e-name" value="' + escapeHtml(claim.name || "") + '"></div></div>' +
+    '<label>病名 / 事故</label><input type="text" class="e-disease" list="diseaseOptions" value="' + escapeHtml(claim.disease) + '">' +
+    '<div style="margin-top:14px">' + claim.products.map((p, i) =>
+      '<div class="claim-line" data-id="' + p.id + '"><div class="line-title">商品 ' + (i + 1) + '</div>' + claimFieldsHtml(p) + '</div>').join("") + '</div>' +
     '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
     '<p class="e-status-msg status-msg"></p>';
   bindMultiChips(detail);
 
   detail.querySelector(".btn-save").addEventListener("click", async () => {
     const msgEl = detail.querySelector(".e-status-msg");
-    const fields = readClaimFields(detail);
+    const shared = {
+      date: detail.querySelector(".e-date").value || claim.date,
+      name: detail.querySelector(".e-name").value.trim(),
+      disease: detail.querySelector(".e-disease").value.trim() || claim.disease,
+    };
     msgEl.textContent = "儲存中…"; msgEl.className = "e-status-msg status-msg";
     try {
-      await updateDoc(doc(db, COLLECTION, entry.id), {
-        ...fields,
-        product: fields.product || entry.product,
-        date: detail.querySelector(".e-date").value || entry.date,
-        name: detail.querySelector(".e-name").value.trim(),
-        disease: detail.querySelector(".e-disease").value.trim() || entry.disease,
-      });
+      for (const block of detail.querySelectorAll(".claim-line")) {
+        const original = claim.products.find((p) => p.id === block.dataset.id);
+        const fields = readClaimFields(block);
+        await updateDoc(doc(db, COLLECTION, original.id), { ...fields, ...shared, product: fields.product || original.product });
+      }
       msgEl.textContent = "已儲存"; msgEl.className = "e-status-msg status-msg ok";
     } catch (e) {
       msgEl.textContent = "儲存失敗:" + e.message; msgEl.className = "e-status-msg status-msg err";
     }
   });
   detail.querySelector(".btn-delete").addEventListener("click", async () => {
-    if (!confirm("確定要刪除「" + entry.product + " / " + entry.disease + "」這筆記錄嗎?")) return;
-    try { await deleteDoc(doc(db, COLLECTION, entry.id)); } catch (e) { alert("刪除失敗:" + e.message); }
+    const label = (claim.name || "未填姓名") + " / " + claim.disease;
+    if (!confirm("確定要刪除「" + label + "」這筆記錄嗎?(" + claim.products.length + " 個商品會一起刪除)")) return;
+    try {
+      for (const p of claim.products) await deleteDoc(doc(db, COLLECTION, p.id));
+    } catch (e) { alert("刪除失敗:" + e.message); }
   });
 
   wrap.appendChild(detail);
@@ -540,14 +560,14 @@ function buildEntryCard(entry) {
 function renderList() {
   const list = document.getElementById("list");
   list.innerHTML = "";
-  const filtered = entries.filter((e) =>
-    (activeResult === "all" || e.result === activeResult) &&
-    (!listTerm || [e.name, e.product, e.disease, e.note].some((v) => norm(v).includes(listTerm))));
+  const filtered = groupClaims().filter((c) =>
+    (activeResult === "all" || c.products.some((p) => p.result === activeResult)) &&
+    (!listTerm || [c.name, c.disease, ...c.products.flatMap((p) => [p.product, p.note])].some((v) => norm(v).includes(listTerm))));
   if (!filtered.length) {
     list.innerHTML = '<div class="empty">' + (entries.length ? "沒有符合條件的記錄。" : "還沒有理賠記錄,到「新增理賠」開始登記。") + '</div>';
     return;
   }
-  filtered.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).forEach((e) => list.appendChild(buildEntryCard(e)));
+  filtered.sort((a, b) => (a.date < b.date ? 1 : -1)).forEach((c) => list.appendChild(buildClaimCard(c)));
 }
 
 function startListening() {
