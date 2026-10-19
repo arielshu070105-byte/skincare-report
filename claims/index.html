@@ -121,11 +121,12 @@
   .greeting-right-top { display: flex; align-items: center; gap: 6px; }
   .header-icon-btn { width: 26px; height: 26px; border-radius: 50%; background: var(--pill-bg); border: 1px solid var(--card-border); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; padding: 0; }
 
-  .stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 10px; margin-bottom: 18px; }
   .stat-tile { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 12px 10px; text-align: center; box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
   .stat-tile[role="button"] { cursor: pointer; }
   .stat-tile .num { font-size: 22px; font-weight: 900; color: var(--ink); line-height: 1.1; }
   .stat-tile.warn .num { color: var(--danger); }
+  .stat-tile .num.money { font-size: 17px; line-height: 1.55; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .stat-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
   .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 
@@ -212,6 +213,7 @@
     <div class="stats-row">
       <div class="stat-tile warn" id="statPendingTile" onclick="showPending()" role="button" tabindex="0"><div class="num" id="statPending">0</div><div class="label">審核中</div></div>
       <div class="stat-tile"><div class="num" id="statTotal">0</div><div class="label">全部記錄</div></div>
+      <div class="stat-tile"><div class="num money" id="statPaid">0</div><div class="label">已理賠金額</div></div>
     </div>
 
     <div class="chip-group" id="pageTabs" role="group" aria-label="頁面切換" style="margin-bottom:18px">
@@ -502,6 +504,9 @@ function updateStats() {
   const claims = groupClaims();
   document.getElementById("statPending").textContent = claims.filter((c) => c.products.some((p) => p.result === "審核中")).length;
   document.getElementById("statTotal").textContent = claims.length;
+  // 已理賠 + 部分理賠 的金額加總(拒賠/審核中不算)
+  const paid = entries.filter((e) => e.result === "已理賠" || e.result === "部分理賠").reduce((s, e) => s + (e.amount || 0), 0);
+  document.getElementById("statPaid").textContent = "$" + paid.toLocaleString("zh-Hant");
 }
 
 function buildClaimCard(claim) {
@@ -509,9 +514,11 @@ function buildClaimCard(claim) {
   wrap.className = "entry";
   const results = RESULTS.filter((r) => claim.products.some((p) => p.result === r));
   const sent = claim.products.map((p) => p.product + (claim.products.length > 1 ? "(" + p.result + ")" : "")).join("、");
+  const claimPaid = claim.products.reduce((s, p) => s + (p.amount || 0), 0);
   wrap.innerHTML = '<summary><div class="entry-top"><span class="entry-name">' + escapeHtml(claim.name || "(未填姓名)") + '</span>' +
     '<span class="disease-stamps">' + results.map((r) => '<span class="stamp rs-' + r + '">' + r + '</span>').join("") + '</span></div>' +
-    '<div class="entry-sub"><span>' + escapeHtml(claim.date) + '</span><span>' + escapeHtml(claim.disease) + '</span></div>' +
+    '<div class="entry-sub"><span>' + escapeHtml(claim.date) + '</span><span>' + escapeHtml(claim.disease) + '</span>' +
+    (claimPaid ? '<span>理賠 NT$ ' + claimPaid.toLocaleString("zh-Hant") + '</span>' : '') + '</div>' +
     '<div class="entry-sub"><span>送出:' + escapeHtml(sent) + '</span></div></summary>';
 
   const detail = document.createElement("div");
