@@ -201,6 +201,9 @@
   .reimburse-line select { flex: 2; margin: 0; }
   .reimburse-line input { flex: 1; margin: 0; }
   .reimburse-line .remove-line-btn { flex-shrink: 0; width: 40px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--danger); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .calendar-qty-row { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+  .calendar-qty-row span { flex: 1; font-size: 13.5px; color: var(--ink-soft); }
+  .calendar-qty-row input { flex: 0 0 72px; margin: 0; min-height: 40px; text-align: center; }
 
   #setupNotice, #loginScreen, #app { display: none; }
 </style>
@@ -364,6 +367,7 @@
         <button type="button" class="chip" data-value="中式桌曆" aria-pressed="false">中式桌曆</button>
         <button type="button" class="chip" data-value="月曆" aria-pressed="false">月曆</button>
       </div>
+      <div id="calendarQtyRows"></div>
       <label for="c-note">備註</label>
       <textarea id="c-note" placeholder="選填"></textarea>
       <button class="btn-primary" onclick="submitCalendar()">送出記錄</button>
@@ -608,13 +612,27 @@ giftOccasionChips.addEventListener("click", (e) => {
 });
 
 const calendarItemChips = document.getElementById("calendarItemChips");
+const calendarQtyRows = document.getElementById("calendarQtyRows");
+function addCalendarQtyRow(container, item, qty) {
+  const row = document.createElement("div");
+  row.className = "calendar-qty-row";
+  row.dataset.item = item;
+  row.innerHTML = '<span>' + escapeHtml(item) + '</span><input type="number" class="cq-qty" value="' + (qty || 1) + '" min="1" inputmode="numeric">';
+  container.appendChild(row);
+}
 calendarItemChips.addEventListener("click", (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
   const pressed = btn.getAttribute("aria-pressed") === "true";
   btn.setAttribute("aria-pressed", pressed ? "false" : "true");
-  if (pressed) selectedCalendarItems.delete(btn.dataset.value);
-  else selectedCalendarItems.add(btn.dataset.value);
+  if (pressed) {
+    selectedCalendarItems.delete(btn.dataset.value);
+    const row = calendarQtyRows.querySelector('[data-item="' + btn.dataset.value + '"]');
+    if (row) row.remove();
+  } else {
+    selectedCalendarItems.add(btn.dataset.value);
+    addCalendarQtyRow(calendarQtyRows, btn.dataset.value, 1);
+  }
 });
 
 const typeChips = document.getElementById("typeChips");
@@ -1146,10 +1164,14 @@ window.submitCalendar = async function () {
   const statusEl = document.getElementById("calendarAddStatus");
   if (!name) { statusEl.textContent = "請填客戶姓名"; statusEl.className = "status-msg err"; return; }
   if (selectedCalendarItems.size === 0) { statusEl.textContent = "請至少選一個項目"; statusEl.className = "status-msg err"; return; }
+  const items = [...calendarQtyRows.querySelectorAll(".calendar-qty-row")].map((row) => ({
+    item: row.dataset.item,
+    qty: Number(row.querySelector(".cq-qty").value) || 1,
+  }));
   const payload = {
     date: document.getElementById("c-date").value || todayISO(),
     name,
-    items: Array.from(selectedCalendarItems),
+    items,
     note: document.getElementById("c-note").value.trim(),
     createdAt: serverTimestamp(),
   };
@@ -1161,6 +1183,7 @@ window.submitCalendar = async function () {
     document.getElementById("c-date").value = todayISO();
     [...calendarItemChips.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
     selectedCalendarItems.clear();
+    calendarQtyRows.innerHTML = "";
     statusEl.textContent = "已送出"; statusEl.className = "status-msg ok";
     setTimeout(() => { statusEl.textContent = ""; }, 2500);
   } catch (e) {
@@ -1168,8 +1191,19 @@ window.submitCalendar = async function () {
   }
 };
 
+function getCalendarItemDetails(c) {
+  if (Array.isArray(c.items)) {
+    return c.items.map((it) => typeof it === "string" ? { item: it, qty: 1 } : { item: it.item, qty: it.qty || 1 });
+  }
+  return c.item ? [{ item: c.item, qty: 1 }] : [];
+}
+
 function getCalendarItems(c) {
-  return c.items || (c.item ? [c.item] : []);
+  return getCalendarItemDetails(c).map((d) => d.item);
+}
+
+function formatCalendarItems(c) {
+  return getCalendarItemDetails(c).map((d) => d.item + "×" + d.qty).join("、");
 }
 
 function buildCalendarCard(c) {
@@ -1180,7 +1214,7 @@ function buildCalendarCard(c) {
   main.className = "entry-main";
   main.innerHTML =
     '<div class="entry-top"><span class="entry-name">' + escapeHtml(c.name) + '</span></div>' +
-    '<div class="entry-sub"><span>' + escapeHtml(getCalendarItems(c).join("、")) + '</span></div>';
+    '<div class="entry-sub"><span>' + escapeHtml(formatCalendarItems(c)) + '</span></div>';
   summary.appendChild(main);
   wrap.appendChild(summary);
 
@@ -1193,20 +1227,33 @@ function buildCalendarCard(c) {
       CALENDAR_ITEMS.map((i) => '<button type="button" class="chip" data-value="' + i + '" aria-pressed="' +
         (getCalendarItems(c).includes(i) ? "true" : "false") + '">' + i + '</button>').join("") +
     '</div>' +
+    '<div class="cd-qty-rows"></div>' +
     '<label>備註</label><textarea class="cd-note">' + escapeHtml(c.note || "") + '</textarea>' +
     '<div class="detail-actions"><button type="button" class="btn-save">儲存變更</button><button type="button" class="btn-delete">刪除</button></div>' +
     '<p class="e-status-msg status-msg"></p>';
 
   const cdItems = detail.querySelector(".cd-items");
+  const cdQtyRows = detail.querySelector(".cd-qty-rows");
+  getCalendarItemDetails(c).forEach((d) => addCalendarQtyRow(cdQtyRows, d.item, d.qty));
   cdItems.addEventListener("click", (e) => {
     const btn = e.target.closest(".chip");
     if (!btn) return;
-    btn.setAttribute("aria-pressed", btn.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    const pressed = btn.getAttribute("aria-pressed") === "true";
+    btn.setAttribute("aria-pressed", pressed ? "false" : "true");
+    if (pressed) {
+      const row = cdQtyRows.querySelector('[data-item="' + btn.dataset.value + '"]');
+      if (row) row.remove();
+    } else {
+      addCalendarQtyRow(cdQtyRows, btn.dataset.value, 1);
+    }
   });
 
   detail.querySelector(".btn-save").addEventListener("click", async () => {
     const msgEl = detail.querySelector(".e-status-msg");
-    const items = [...cdItems.querySelectorAll(".chip")].filter((c2) => c2.getAttribute("aria-pressed") === "true").map((c2) => c2.dataset.value);
+    const items = [...cdQtyRows.querySelectorAll(".calendar-qty-row")].map((row) => ({
+      item: row.dataset.item,
+      qty: Number(row.querySelector(".cq-qty").value) || 1,
+    }));
     if (items.length === 0) { msgEl.textContent = "請至少選一個項目"; msgEl.className = "e-status-msg status-msg err"; return; }
     msgEl.textContent = "儲存中…"; msgEl.className = "e-status-msg status-msg";
     try {
@@ -1237,8 +1284,11 @@ function buildCalendarCard(c) {
 function renderCalendarStats() {
   const row = document.getElementById("calendarStatsRow");
   row.innerHTML = CALENDAR_ITEMS.map((item) => {
-    const count = calendarEntries.filter((c) => getCalendarItems(c).includes(item)).length;
-    return '<div class="stat-tile"><div class="num">' + count + '</div><div class="label">' + item + '</div></div>';
+    const qty = calendarEntries.reduce((sum, c) => {
+      const d = getCalendarItemDetails(c).find((x) => x.item === item);
+      return sum + (d ? d.qty : 0);
+    }, 0);
+    return '<div class="stat-tile"><div class="num">' + qty + '</div><div class="label">' + item + '</div></div>';
   }).join("");
 }
 
@@ -1513,7 +1563,7 @@ window.exportCalendarMonth = function () {
   const rows = calendarEntries
     .filter((c) => inMonthRange(c.date, range.from, range.to))
     .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .map((c) => [c.date, c.name, getCalendarItems(c).join("、"), c.note]);
+    .map((c) => [c.date, c.name, formatCalendarItems(c), c.note]);
   if (rows.length === 0) { alert(range.from + " ~ " + range.to + " 這段期間沒有記錄"); return; }
   const header = ["日期", "客戶姓名", "項目", "備註"];
   downloadCsv("年曆_" + range.from + "_" + range.to + ".csv", header, rows);
